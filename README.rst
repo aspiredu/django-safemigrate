@@ -2,6 +2,24 @@
 django-safemigrate: Safely run migrations before deployment
 ===========================================================
 
+.. image:: https://img.shields.io/pypi/v/django-safemigrate.svg
+   :target: https://pypi.org/project/django-safemigrate/
+   :alt: Latest Version
+
+.. image:: https://dev.azure.com/aspiredu/django-safemigrate/_apis/build/status/1?branchName=master
+   :target: https://dev.azure.com/aspiredu/django-safemigrate/_build/latest?definitionId=1&branchName=master
+   :alt: Build status
+
+.. image:: https://codecov.io/gh/aspiredu/django-safemigrate/branch/master/graph/badge.svg
+   :target: https://codecov.io/gh/aspiredu/django-safemigrate
+   :alt: Code Coverage
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+   :target: https://github.com/ambv/black
+   :alt: Code style: black
+
+|
+
 django-safemigrate add a ``safemigrate`` command to Django
 to allow for safely running a migration command when deploying.
 
