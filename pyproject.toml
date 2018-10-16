@@ -3,6 +3,7 @@ name = "django-safemigrate"
 version = "1.0"
 description = "Safely run migrations before deployment"
 authors = ["Ryan Hiebert <ryan@aspiredu.com>"]
+license = 'MIT'
 
 [tool.poetry.dependencies]
 python = "^3.7"
