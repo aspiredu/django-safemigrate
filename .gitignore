@@ -1,0 +1,10 @@
+.pytest_cache/
+.vscode/
+__pycache__/
+*.egg-info/
+py[co]
+pyproject.lock
+db.sqlite3
+.coverage
+.coverage.*
+htmlcov/

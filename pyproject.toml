@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "django-safemigrate"
+version = "1.0"
+description = "Safely run migrations before deployment"
+authors = ["Ryan Hiebert <ryan@aspiredu.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+django = "^2.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^3.0"
+black = "^18.3-alpha.0"
+codecov = "^2.0"
+pytest-cov = "^2.6"
+pytest-django = "^3.4"
+pytest-pythonpath = "^0.7.3"
+pytest-mock = "^1.10"
