@@ -11,7 +11,7 @@ django = "^2.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^3.0"
-black = "^18.3-alpha.0"
+black = "^18.9b0"
 codecov = "^2.0"
 pytest-cov = "^2.6"
 pytest-django = "^3.4"
