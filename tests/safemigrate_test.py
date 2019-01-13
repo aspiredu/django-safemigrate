@@ -7,12 +7,18 @@ from django_safemigrate.management.commands.safemigrate import Command
 class Migration:
     """A mock migration."""
 
-    def __init__(self, app_label=None, name=None, dependencies=None, safe=None):
+    def __init__(
+        self, app_label=None, name=None, dependencies=None, run_before=None, safe=None
+    ):
         self.app_label = app_label or "app_label"
         self.name = name or "0001_fake_migration"
         self.dependencies = dependencies or []
+        self.run_before = run_before or []
         if safe is not None:
             self.safe = safe
+
+    def __repr__(self):
+        return f"<Migration {self.app_label}.{self.name}>"
 
 
 class TestSafeMigrate:
@@ -121,6 +127,28 @@ class TestSafeMigrate:
         ]
         with pytest.raises(CommandError):
             receiver(plan=plan)
+
+    def test_blocked_by_unsafe_run_before(self, receiver):
+        """Consider run_before when tracking dependencies.
+
+        run_before allows for dependency inversion when a migration
+        needs to be run before a migration that may not be under
+        your control to add a dependency to directly.
+        """
+        plan = [
+            (Migration("spam", "0001_initial", safe=True), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=False,
+                    dependencies=[("spam", "0001_initial")],
+                    run_before=[("eggs", "0001_safety")],
+                ),
+                False,
+            ),
+            (Migration("eggs", "0001_safety", safe=True), False),
+        ]
 
     def test_unsafe_blocked_by_unsafe(self, receiver):
         """Blocked unsafe migrations indicate a failure state.

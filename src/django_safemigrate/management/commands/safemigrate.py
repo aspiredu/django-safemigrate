@@ -49,45 +49,46 @@ class Command(migrate.Command):
             return  # No unsafe migrations to protect.
 
         # Display the unsafe migrations that need to be run.
-        self.stdout.write(
-            self.style.MIGRATE_HEADING("These unsafe migrations will not be run:")
-        )
+        self.stdout.write(self.style.MIGRATE_HEADING("Unsafe migrations:"))
         for migration in unsafe:
             self.stdout.write(f"  {migration.app_label}.{migration.name}")
 
-        skipped = []
-        unskipped = list(migrations)
-        unsafe_deps = [(m.app_label, m.name) for m in unsafe]
-        if not strict:
-            # Remove blocked migrations until no more are blocked.
-            while True:
-                blocked = [
-                    migration
-                    for migration in unskipped
-                    if any(dep in unsafe_deps for dep in migration.dependencies)
-                ]
-                if not blocked:
-                    break
-                skipped.extend(blocked)
-                for migration in blocked:
-                    unsafe_deps.append((migration.app_label, migration.name))
-                    unskipped.remove(migration)
-                    if migration in safe:
-                        safe.remove(migration)
-        elif any(dep in unsafe_deps for m in migrations for dep in m.dependencies):
-            raise CommandError(
-                "Unsafe migrations are blocking other migrations. Aborting."
-            )
+        # Include unsafe migrations in initial unblocked list so that
+        # we can show and check for blocked unsafe migrations.
+        unblocked = list(migrations)
+        blocked = []
 
-        # Order the skipped migrations in the order of the original plan.
-        skipped = [migration for migration in migrations if migration in skipped]
+        # Remove migrations blocked by unsafe migrations
+        while True:
+            blockers = unsafe + blocked
+            blockers_deps = [(m.app_label, m.name) for m in blockers]
+            to_block_deps = [dep for mig in blockers for dep in mig.run_before]
+            block = [
+                migration
+                for migration in unblocked
+                if any(dep in blockers_deps for dep in migration.dependencies)
+                or (migration.app_label, migration.name) in to_block_deps
+            ]
+            if not block:
+                break
 
-        # Display skipped migrations if they exist.
-        if skipped:
-            self.stdout.write(
-                self.style.MIGRATE_HEADING("These blocked migrations were skipped:")
-            )
-            self.stdout.write(f"  {migration.app_label}.{migration.name}")
+            blocked.extend(block)
+            for migration in blocked:
+                unblocked.remove(migration)
+                if migration in safe:
+                    safe.remove(migration)
+
+        # Order the blocked migrations in the order of the original plan.
+        blocked = [m for m in migrations if m in blocked]
+
+        # Display blocked migrations if they exist.
+        if blocked:
+            self.stdout.write(self.style.MIGRATE_HEADING("Blocked migrations:"))
+            for migration in blocked:
+                self.stdout.write(f"  {migration.app_label}.{migration.name}")
+
+        if blocked and strict:
+            raise CommandError("Aborting due to blocked migrations.")
 
         # Swap out the items in the plan with the safe migrations.
         # None are backward, so we can always set backward to False.
