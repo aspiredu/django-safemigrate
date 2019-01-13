@@ -46,8 +46,8 @@ class TestSafeMigrate:
     def test_backward(self, receiver):
         """It should be able to run backward."""
         plan = [(Migration(), True)]
-        receiver(plan=plan)
-        assert len(plan) == 1
+        with pytest.raises(CommandError):
+            receiver(plan=plan)
 
     def test_all_safe(self, receiver):
         """Safe migrations will remain in the plan."""

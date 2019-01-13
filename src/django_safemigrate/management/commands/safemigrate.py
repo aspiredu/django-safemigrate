@@ -34,7 +34,7 @@ class Command(migrate.Command):
         strict = getattr(settings, "SAFEMIGRATE", None) != "nonstrict"
 
         if any(backward for mig, backward in plan):
-            return  # No protection for a backward migration.
+            raise CommandError("Backward migrations are not supported.")
 
         def issafe(migration):
             """Determine if a migration is safe to run before release."""
