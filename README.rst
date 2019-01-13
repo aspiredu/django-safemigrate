@@ -20,7 +20,7 @@ django-safemigrate: Safely run migrations before deployment
 
 |
 
-django-safemigrate add a ``safemigrate`` command to Django
+django-safemigrate adds a ``safemigrate`` command to Django
 to allow for safely running a migration command when deploying.
 
 Usage
