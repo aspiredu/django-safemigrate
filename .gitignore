@@ -3,7 +3,7 @@
 __pycache__/
 *.egg-info/
 py[co]
-pyproject.lock
+poetry.lock
 db.sqlite3
 .coverage
 .coverage.*
