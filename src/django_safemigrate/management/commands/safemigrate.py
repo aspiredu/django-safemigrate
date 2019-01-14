@@ -6,12 +6,19 @@ from django.conf import settings
 from django.db.models.signals import pre_migrate
 from django.core.management.base import CommandError
 from django.core.management.commands import migrate
+from django_safemigrate import Safe
+from django_safemigrate.apps import SafeMigrateConfig
+
+
+def safety(migration):
+    """Determine the safety status of a migration."""
+    return getattr(migration, "safe", Safe.after_deploy)
 
 
 class Command(migrate.Command):
-    """Run safe database migrations."""
+    """Run database migrations that are safe to run before deployment."""
 
-    help = "Run safe database migrations."
+    help = "Run database migrations that are safe to run before deployment."
     receiver_has_run = False
 
     def handle(self, *args, **options):
@@ -27,7 +34,7 @@ class Command(migrate.Command):
         if self.receiver_has_run:
             # Can't just look for the run for the current app,
             # because it only sends the signal to apps with models.
-            return  # Only run once.
+            return  # Only run once
         self.receiver_has_run = True
 
         # strict by default
@@ -36,50 +43,59 @@ class Command(migrate.Command):
         if any(backward for mig, backward in plan):
             raise CommandError("Backward migrations are not supported.")
 
-        def issafe(migration):
-            """Determine if a migration is safe to run before release."""
-            return getattr(migration, "safe", True)
-
-        # Pull the migrations into a new list.
+        # Pull the migrations into a new list
         migrations = [migration for migration, backward in plan]
-        safe = [migration for migration in migrations if issafe(migration)]
-        unsafe = [migration for migration in migrations if not issafe(migration)]
+        protected = [
+            migration
+            for migration in migrations
+            if safety(migration) == Safe.after_deploy
+        ]
 
-        if not unsafe:
-            return  # No unsafe migrations to protect.
+        if not protected:
+            return  # No migrations to protect.
 
-        # Display the unsafe migrations that need to be run.
-        self.stdout.write(self.style.MIGRATE_HEADING("Unsafe migrations:"))
-        for migration in unsafe:
+        # Display the migrations that are protected
+        self.stdout.write(self.style.MIGRATE_HEADING("Protected migrations:"))
+        for migration in protected:
             self.stdout.write(f"  {migration.app_label}.{migration.name}")
 
-        # Include unsafe migrations in initial unblocked list so that
-        # we can show and check for blocked unsafe migrations.
-        unblocked = list(migrations)
+        ready = [
+            migration
+            for migration in migrations
+            if safety(migration) != Safe.after_deploy
+        ]
+        delayed = []
         blocked = []
 
-        # Remove migrations blocked by unsafe migrations
         while True:
-            blockers = unsafe + blocked
+            blockers = protected + delayed + blocked
             blockers_deps = [(m.app_label, m.name) for m in blockers]
             to_block_deps = [dep for mig in blockers for dep in mig.run_before]
             block = [
                 migration
-                for migration in unblocked
+                for migration in ready
                 if any(dep in blockers_deps for dep in migration.dependencies)
                 or (migration.app_label, migration.name) in to_block_deps
             ]
             if not block:
                 break
 
-            blocked.extend(block)
-            for migration in blocked:
-                unblocked.remove(migration)
-                if migration in safe:
-                    safe.remove(migration)
+            for migration in block:
+                ready.remove(migration)
+                if safety(migration) == Safe.before_deploy:
+                    blocked.append(migration)
+                else:
+                    delayed.append(migration)
 
-        # Order the blocked migrations in the order of the original plan.
+        # Order the migrations in the order of the original plan.
+        delayed = [m for m in migrations if m in delayed]
         blocked = [m for m in migrations if m in blocked]
+
+        # Display delayed migrations if they exist:
+        if delayed:
+            self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
+            for migration in delayed:
+                self.stdout.write(f"  {migration.app_label}.{migration.name}")
 
         # Display blocked migrations if they exist.
         if blocked:
@@ -92,4 +108,4 @@ class Command(migrate.Command):
 
         # Swap out the items in the plan with the safe migrations.
         # None are backward, so we can always set backward to False.
-        plan[:] = [(migration, False) for migration in safe]
+        plan[:] = [(migration, False) for migration in ready]
