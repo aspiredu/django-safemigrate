@@ -45,6 +45,19 @@ class Command(migrate.Command):
 
         # Pull the migrations into a new list
         migrations = [migration for migration, backward in plan]
+
+        # Check for invalid safe properties
+        invalid = [
+            migration for migration in migrations if safety(migration) not in Safe
+        ]
+        if invalid:
+            self.stdout.write(self.style.MIGRATE_HEADING("Invalid migrations:"))
+            for migration in invalid:
+                self.stdout.write(f"  {migration.app_label}.{migration.name}")
+            raise CommandError(
+                "Aborting due to migrations with invalid safe properties."
+            )
+
         protected = [
             migration
             for migration in migrations

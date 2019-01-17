@@ -17,6 +17,7 @@
   because they don't require any database changes.
 * Multiple dependent ``Safe.after_deploy`` migrations do not block deployment
   as long as there are no dependent ``Safe.before_deploy`` migrations.
+* Enforce that any given value of safe is valid.
 
 1.0 (2019-01-13)
 ++++++++++++++++
