@@ -250,3 +250,15 @@ class TestSafeMigrate:
         ]
         receiver(plan=plan)
         assert len(plan) == 1
+
+    def test_string_invalid(self, receiver):
+        """Invalid settings of the safe property will raise an error."""
+        plan = [(Migration("spam", "0001_initial", safe="before_deploy"), False)]
+        with pytest.raises(CommandError):
+            receiver(plan=plan)
+
+    def test_boolean_invalid(self, receiver):
+        """Booleans are invalid for the safe property."""
+        plan = [(Migration("spam", "0001_initial", safe=False), False)]
+        with pytest.raises(CommandError):
+            receiver(plan=plan)
