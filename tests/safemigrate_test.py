@@ -1,6 +1,7 @@
 """Unit tests for the safemigrate command."""
 import pytest
 from django.core.management.base import CommandError
+from django_safemigrate import Safe
 from django_safemigrate.management.commands.safemigrate import Command
 
 
@@ -50,26 +51,32 @@ class TestSafeMigrate:
         assert len(plan) == 1
 
     def test_backward(self, receiver):
-        """It should be able to run backward."""
+        """It should fail to run backward."""
         plan = [(Migration(), True)]
         with pytest.raises(CommandError):
             receiver(plan=plan)
 
-    def test_all_safe(self, receiver):
-        """Safe migrations will remain in the plan."""
+    def default_after(self, receiver):
+        """Migrations are after by default."""
         plan = [(Migration(), False)]
         receiver(plan=plan)
+        assert len(plan) == 0
+
+    def test_all_before(self, receiver):
+        """Before migrations will remain in the plan."""
+        plan = [(Migration(safe=Safe.before_deploy), False)]
+        receiver(plan=plan)
         assert len(plan) == 1
 
-    def test_final_unsafe(self, receiver):
+    def test_final_after(self, receiver):
         """Run everything except the final migration."""
         plan = [
-            (Migration("spam", "0001_initial", safe=True), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=False,
+                    safe=Safe.after_deploy,
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -78,39 +85,39 @@ class TestSafeMigrate:
         receiver(plan=plan)
         assert len(plan) == 1
 
-    def test_multiple_unsafe(self, receiver):
-        """Run up to the first unsafe migration."""
+    def test_multiple_after(self, receiver):
+        """Run up to the first after migration."""
         plan = [
-            (Migration("spam", "0001_initial", safe=True), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=False,
+                    safe=Safe.after_deploy,
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
             ),
-            (Migration("eggs", "0001_followup", safe=False), False),
+            (Migration("eggs", "0001_followup", safe=Safe.after_deploy), False),
         ]
         receiver(plan=plan)
         assert len(plan) == 1
 
-    def test_blocked_by_unsafe(self, receiver):
-        """Blocked safe migrations indicate a failure state.
+    def test_blocked_by_after(self, receiver):
+        """Blocked before migrations indicate a failure state.
 
-        This might happen when an unsafe migration is shipped, but
+        This might happen when an after migration is shipped, but
         is not run manually after the deployment happened. Safe
         migrations should be run automatically, so this needs to
         block to avoid release failures.
         """
         plan = [
-            (Migration("spam", "0001_initial", safe=True), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=False,
+                    safe=Safe.after_deploy,
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -119,7 +126,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0003_safety",
-                    safe=True,
+                    safe=Safe.before_deploy,
                     dependencies=[("spam", "0002_followup")],
                 ),
                 False,
@@ -128,7 +135,7 @@ class TestSafeMigrate:
         with pytest.raises(CommandError):
             receiver(plan=plan)
 
-    def test_blocked_by_unsafe_run_before(self, receiver):
+    def test_blocked_by_after_run_before(self, receiver):
         """Consider run_before when tracking dependencies.
 
         run_before allows for dependency inversion when a migration
@@ -136,34 +143,29 @@ class TestSafeMigrate:
         your control to add a dependency to directly.
         """
         plan = [
-            (Migration("spam", "0001_initial", safe=True), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=False,
+                    safe=Safe.after_deploy,
                     dependencies=[("spam", "0001_initial")],
                     run_before=[("eggs", "0001_safety")],
                 ),
                 False,
             ),
-            (Migration("eggs", "0001_safety", safe=True), False),
+            (Migration("eggs", "0001_safety", safe=Safe.before_deploy), False),
         ]
 
-    def test_unsafe_blocked_by_unsafe(self, receiver):
-        """Blocked unsafe migrations indicate a failure state.
-
-        Like blocked safe migrations, dependent unsafe migrations are
-        disallowed. They should either be combined into a single
-        migration, or deployed separately.
-        """
+    def test_consecutive_after(self, receiver):
+        """Consecutive after migrations are ok."""
         plan = [
-            (Migration("spam", "0001_initial", safe=True), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=False,
+                    safe=Safe.after_deploy,
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -172,17 +174,51 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0003_safety",
-                    safe=False,
+                    safe=Safe.after_deploy,
                     dependencies=[("spam", "0002_followup")],
                 ),
                 False,
             ),
         ]
-        with pytest.raises(CommandError):
-            receiver(plan=plan)
+        receiver(plan=plan)
+        assert len(plan) == 1
 
-    def test_blocked_by_unsafe_nonstrict(self, settings, receiver):
-        """Nonstrict mode allows safe blocked migrations.
+    def test_always_before_after(self, receiver):
+        """Always migrations will run before after migrations."""
+        plan = [
+            (Migration("spam", "0001_initial", safe=Safe.always), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy,
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 1
+
+    def test_always_after_after(self, receiver):
+        """Always migrations will not block after deployments."""
+        plan = [
+            (Migration("spam", "0001_initial", safe=Safe.after_deploy), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.always,
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 0
+
+    def test_blocked_by_after_nonstrict(self, settings, receiver):
+        """Nonstrict mode allows before blocked migrations.
 
         This allows the command to succeed where it would normally
         error. This allows for development environments, where
@@ -192,12 +228,12 @@ class TestSafeMigrate:
         """
         settings.SAFEMIGRATE = "nonstrict"
         plan = [
-            (Migration("spam", "0001_initial", safe=True), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=False,
+                    safe=Safe.after_deploy,
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -206,41 +242,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0003_safety",
-                    safe=True,
-                    dependencies=[("spam", "0002_followup")],
-                ),
-                False,
-            ),
-        ]
-        receiver(plan=plan)
-        assert len(plan) == 1
-
-    def test_unsafe_blocked_by_unsafe_nonstrict(self, settings, receiver):
-        """Nonstrict mode allows unsafe blocked migrations.
-
-        This allows the command to succeed where it would normally
-        error. This allows for development environments, where
-        errors are acceptable during transitions, to avoid having
-        to migrate everything incrementally the way production
-        environments are expected to.
-        """
-        settings.SAFEMIGRATE = "nonstrict"
-        plan = [
-            (Migration("spam", "0001_initial", safe=True), False),
-            (
-                Migration(
-                    "spam",
-                    "0002_followup",
-                    safe=False,
-                    dependencies=[("spam", "0001_initial")],
-                ),
-                False,
-            ),
-            (
-                Migration(
-                    "spam",
-                    "0003_safety",
-                    safe=False,
+                    safe=Safe.before_deploy,
                     dependencies=[("spam", "0002_followup")],
                 ),
                 False,
