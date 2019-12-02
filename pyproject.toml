@@ -12,7 +12,7 @@ readme = "README.rst"
 
 [tool.poetry.dependencies]
 python = "^3.6"
-django = "^2.1"
+django = ">=2.1,<4.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.1"
