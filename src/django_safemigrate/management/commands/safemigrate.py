@@ -48,7 +48,9 @@ class Command(migrate.Command):
 
         # Check for invalid safe properties
         invalid = [
-            migration for migration in migrations if safety(migration) not in Safe
+            migration
+            for migration in migrations
+            if not isinstance(safety(migration), Safe) or safety(migration) not in Safe
         ]
         if invalid:
             self.stdout.write(self.style.MIGRATE_HEADING("Invalid migrations:"))
