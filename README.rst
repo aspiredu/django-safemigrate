@@ -6,8 +6,8 @@ django-safemigrate: Safely run migrations before deployment
    :target: https://pypi.org/project/django-safemigrate/
    :alt: Latest Version
 
-.. image:: https://dev.azure.com/aspiredu/django-safemigrate/_apis/build/status/1?branchName=master
-   :target: https://dev.azure.com/aspiredu/django-safemigrate/_build/latest?definitionId=1&branchName=master
+.. image:: https://github.com/aspiredu/django-safemigrate/workflows/Build/badge.svg
+   :target: https://github.com/aspiredu/django-safemigrate/actions/
    :alt: Build status
 
 .. image:: https://codecov.io/gh/aspiredu/django-safemigrate/branch/master/graph/badge.svg
