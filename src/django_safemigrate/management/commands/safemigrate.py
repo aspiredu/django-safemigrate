@@ -10,9 +10,9 @@ from django_safemigrate import Safe
 from django_safemigrate.apps import SafeMigrateConfig
 
 
-def safety(migration):
+def safety(migration, strict):
     """Determine the safety status of a migration."""
-    return getattr(migration, "safe", Safe.after_deploy)
+    return getattr(migration, "safe", Safe.unset if strict else Safe.after_deploy)
 
 
 class Command(migrate.Command):
@@ -50,7 +50,8 @@ class Command(migrate.Command):
         invalid = [
             migration
             for migration in migrations
-            if not isinstance(safety(migration), Safe) or safety(migration) not in Safe
+            if not isinstance(safety(migration, strict), Safe)
+            or safety(migration, strict) not in Safe
         ]
         if invalid:
             self.stdout.write(self.style.MIGRATE_HEADING("Invalid migrations:"))
@@ -60,10 +61,22 @@ class Command(migrate.Command):
                 "Aborting due to migrations with invalid safe properties."
             )
 
+        # Check for unset safe properties
+        unset = [
+            migration
+            for migration in migrations
+            if safety(migration, strict) == Safe.unset
+        ]
+        if strict and unset:
+            self.stdout.write(self.style.MIGRATE_HEADING("Unset migrations:"))
+            for migration in unset:
+                self.stdout.write(f"  {migration.app_label}.{migration.name}")
+            raise CommandError("Aborting due to migrations with unset safe properties.")
+
         protected = [
             migration
             for migration in migrations
-            if safety(migration) == Safe.after_deploy
+            if safety(migration, strict) == Safe.after_deploy
         ]
 
         if not protected:
@@ -77,7 +90,7 @@ class Command(migrate.Command):
         ready = [
             migration
             for migration in migrations
-            if safety(migration) != Safe.after_deploy
+            if safety(migration, strict) != Safe.after_deploy
         ]
         delayed = []
         blocked = []
@@ -97,7 +110,7 @@ class Command(migrate.Command):
 
             for migration in block:
                 ready.remove(migration)
-                if safety(migration) == Safe.before_deploy:
+                if safety(migration, strict) == Safe.before_deploy:
                     blocked.append(migration)
                 else:
                     delayed.append(migration)

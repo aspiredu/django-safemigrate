@@ -156,6 +156,8 @@ class TestSafeMigrate:
             ),
             (Migration("eggs", "0001_safety", safe=Safe.before_deploy), False),
         ]
+        with pytest.raises(CommandError):
+            receiver(plan=plan)
 
     def test_consecutive_after(self, receiver):
         """Consecutive after migrations are ok."""
@@ -262,3 +264,21 @@ class TestSafeMigrate:
         plan = [(Migration("spam", "0001_initial", safe=False), False)]
         with pytest.raises(CommandError):
             receiver(plan=plan)
+
+    def test_unset_migration_default(self, settings, receiver):
+        """Unset migrations should be blocked in strict mode."""
+        plan = [(Migration("spam", "0001_initial"), False)]
+        with pytest.raises(CommandError):
+            receiver(plan=plan)
+
+    def test_unset_migration(self, settings, receiver):
+        """Unset migrations should be blocked in strict mode."""
+        plan = [(Migration("spam", "0001_initial", safe=Safe.unset), False)]
+        with pytest.raises(CommandError):
+            receiver(plan=plan)
+
+    def test_unset_migration_nonstrict(self, settings, receiver):
+        """Unset migrations should be unblocked in nonstrict mode."""
+        settings.SAFEMIGRATE = "nonstrict"
+        plan = [(Migration("spam", "0001_initial", safe=Safe.unset), False)]
+        receiver(plan=plan)

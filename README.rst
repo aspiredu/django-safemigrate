@@ -74,7 +74,6 @@ There are three options for the value of the
 * ``Safe.after_deploy``
 
   This migration is only safe to run after the code change is deployed.
-  This is the default that is applied if no ``safe`` property is given.
   For example, a migration that removes a field from a model.
 
 * ``Safe.always``
@@ -83,13 +82,23 @@ There are three options for the value of the
   the code change is deployed.
   For example, a migration that changes the ``help_text`` of a field.
 
+* ``Safe.unset``
+
+  This is the default that is applied if no ``safe`` property is given.
+  This migration will block ``migrate`` when running in strict mode.
+
+
 Nonstrict Mode
 ==============
 
-Under normal operation, if there are migrations
-that must run before the deployment that depend
-on any migration that is marked to run after deployment
-(or is not marked),
+Under normal operation, if there are migrations that have ``safe``
+unset or set to ``Safe.unset`` the command will raise an error to
+indicate that there are migrations that need their ``safe``
+properties set appropriately.
+
+Similarly, if there are migrations that must run before the
+deployment that depend on any migration that is marked to run
+after deployment (or is not marked),
 the command will raise an error to indicate
 that there are protected migrations that
 should have already been run, but have not been,
@@ -108,6 +117,6 @@ To enable nonstrict mode, add the ``SAFEMIGRATE`` setting:
     SAFEMIGRATE = "nonstrict"
 
 In this mode ``safemigrate`` will run all the migrations
-that are not blocked by any unsafe migrations.
+that are unset and those not blocked by any unsafe migrations.
 Any remaining migrations can be run after the fact
 using the normal ``migrate`` Django command.

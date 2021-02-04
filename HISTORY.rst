@@ -1,3 +1,9 @@
+3.1 (2020-10-07)
+++++++++++++++++
+
+* Default migrations to ``Safe.unset`` which will cause ``migrate`` to
+  raise an error when running in strict mode.
+
 3.0 (2020-10-07)
 ++++++++++++++++
 
