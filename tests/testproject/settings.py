@@ -5,6 +5,7 @@ SECRET_KEY = "02^5l2jh+t-)3#+9!7&^5n0c#&o(ararue&=gj(*b02pk)i9(#"
 DEBUG = True
 ALLOWED_HOSTS = []
 
+USE_TZ = True
 
 # Application definition
 INSTALLED_APPS = ["django_safemigrate.apps.SafeMigrateConfig"]

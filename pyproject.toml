@@ -4,7 +4,7 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "django-safemigrate"
-version = "3.0"
+version = "4.0"
 description = "Safely run migrations before deployment"
 authors = ["Ryan Hiebert <ryan@aspiredu.com>"]
 license = "MIT"
@@ -12,13 +12,16 @@ readme = "README.rst"
 
 [tool.poetry.dependencies]
 python = "^3.6"
-django = "^3.0"
+django = [
+    {version = "^3.0", python = "^3.6"},
+    {version = "^4.0rc1", python = "^3.8"}
+]
 
 [tool.poetry.dev-dependencies]
-pytest = "^6.1"
-black = "^20.8b1"
-codecov = "^2.0"
-pytest-cov = "^3.0"
-pytest-django = "^4.0"
-pytest-pythonpath = "^0.7.3"
-pytest-mock = "^3.3"
+pytest = "*"
+black = "*"
+codecov = "*"
+pytest-cov = "*"
+pytest-django = "*"
+pytest-pythonpath = "*"
+pytest-mock = "*"
