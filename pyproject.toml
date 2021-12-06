@@ -12,16 +12,19 @@ readme = "README.rst"
 
 [tool.poetry.dependencies]
 python = "^3.6"
-django = [
-    {version = "^3.0", python = "^3.6"},
-    {version = "^4.0rc1", python = "^3.8"}
-]
+django = ">=3.0,<5.0"
 
 [tool.poetry.dev-dependencies]
-pytest = "*"
+tox = "*"
 black = "*"
-codecov = "*"
-pytest-cov = "*"
-pytest-django = "*"
-pytest-pythonpath = "*"
-pytest-mock = "*"
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["django_safemigrate"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
