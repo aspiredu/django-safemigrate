@@ -17,3 +17,14 @@ django = ">=3.0,<5.0"
 [tool.poetry.dev-dependencies]
 tox = "*"
 black = "*"
+
+[tool.coverage.run]
+branch = "True"
+parallel = "True"
+source = "django_safemigrate"
+
+[tool.coverage.paths]
+source = "src"
+
+[tool.coverage.report]
+show_missing = "True"
