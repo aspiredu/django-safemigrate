@@ -24,7 +24,7 @@ parallel = true
 source = ["django_safemigrate"]
 
 [tool.coverage.paths]
-source = ["src"]
+source = ["src", ".tox/*/site-packages"]
 
 [tool.coverage.report]
 show_missing = true
