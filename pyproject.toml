@@ -19,12 +19,12 @@ tox = "*"
 black = "*"
 
 [tool.coverage.run]
-branch = "True"
-parallel = "True"
-source = "django_safemigrate"
+branch = true
+parallel = true
+source = ["django_safemigrate"]
 
 [tool.coverage.paths]
-source = "src"
+source = ["src"]
 
 [tool.coverage.report]
-show_missing = "True"
+show_missing = true
