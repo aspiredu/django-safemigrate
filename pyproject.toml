@@ -15,10 +15,5 @@ python = "^3.6"
 django = ">=3.0,<5.0"
 
 [tool.poetry.dev-dependencies]
-pytest = "*"
+tox = "*"
 black = "*"
-codecov = "*"
-pytest-cov = "*"
-pytest-django = "*"
-pytest-pythonpath = "*"
-pytest-mock = "*"
