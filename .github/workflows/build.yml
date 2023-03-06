@@ -14,10 +14,10 @@ jobs:
         - "3.11"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -27,7 +27,7 @@ jobs:
           echo "::set-output name=dir::$(pip cache dir)"
 
       - name: Cache pip
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: ${{ steps.pip-cache.outputs.dir }}
           key:
@@ -45,22 +45,10 @@ jobs:
           python -m coverage xml
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         with:
-          name: Python ${{ matrix.python-version }}
           token: ${{ secrets.CODECOV_TOKEN }}
+          name: Python ${{ matrix.python-version }}
+          files: "coverage.xml"
           fail_ci_if_error: true
           verbose: true
-
-  black:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Set up Python 3.11.2
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.11.2
-      - name: Install black
-        run: python -m pip install --upgrade pip black
-      - name: Check formatting
-        run: black --check .
