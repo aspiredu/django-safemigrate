@@ -3,11 +3,11 @@
 Migration safety is enforced by a pre_migrate signal receiver.
 """
 from django.conf import settings
-from django.db.models.signals import pre_migrate
 from django.core.management.base import CommandError
 from django.core.management.commands import migrate
+from django.db.models.signals import pre_migrate
+
 from django_safemigrate import Safe
-from django_safemigrate.apps import SafeMigrateConfig
 
 
 def safety(migration):

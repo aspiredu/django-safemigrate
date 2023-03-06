@@ -1,6 +1,7 @@
 """Unit tests for the safemigrate command."""
 import pytest
 from django.core.management.base import CommandError
+
 from django_safemigrate import Safe
 from django_safemigrate.management.commands.safemigrate import Command
 
@@ -156,6 +157,8 @@ class TestSafeMigrate:
             ),
             (Migration("eggs", "0001_safety", safe=Safe.before_deploy), False),
         ]
+        with pytest.raises(CommandError):
+            receiver(plan=plan)
 
     def test_consecutive_after(self, receiver):
         """Consecutive after migrations are ok."""

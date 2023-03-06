@@ -1,6 +1,23 @@
 [build-system]
-requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
+requires = [
+  "poetry>=0.12",
+]
+
+[tool.isort]
+combine_as_imports = true
+profile = "black"
+
+[tool.coverage.run]
+branch = true
+parallel = true
+source = ["django_safemigrate"]
+
+[tool.coverage.paths]
+source = ["src", ".tox/*/site-packages"]
+
+[tool.coverage.report]
+show_missing = true
 
 [tool.poetry]
 name = "django-safemigrate"
@@ -16,15 +33,3 @@ django = ">=3.2,<5.0"
 
 [tool.poetry.dev-dependencies]
 tox = "*"
-black = "*"
-
-[tool.coverage.run]
-branch = true
-parallel = true
-source = ["django_safemigrate"]
-
-[tool.coverage.paths]
-source = ["src", ".tox/*/site-packages"]
-
-[tool.coverage.report]
-show_missing = true

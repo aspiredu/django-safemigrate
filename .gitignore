@@ -10,4 +10,3 @@ db.sqlite3
 htmlcov/
 dist/
 .tox/
-
