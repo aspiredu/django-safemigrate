@@ -11,8 +11,8 @@ license = "MIT"
 readme = "README.rst"
 
 [tool.poetry.dependencies]
-python = "^3.6"
-django = ">=3.0,<5.0"
+python = "^3.8"
+django = ">=3.2,<5.0"
 
 [tool.poetry.dev-dependencies]
 tox = "*"
