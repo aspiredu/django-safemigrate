@@ -1,3 +1,11 @@
+4.0 (2022-10-07)
+++++++++++++++++
+
+* Add support for Django 4.1, 4.2.
+* Add support for Python 3.11.
+* Drop support for Django 3.0, 3.1.
+* Drop support for Python 3.6, 3.7.
+
 3.1 (2021-12-08)
 ++++++++++++++++
 
