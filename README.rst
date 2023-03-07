@@ -111,3 +111,43 @@ In this mode ``safemigrate`` will run all the migrations
 that are not blocked by any unsafe migrations.
 Any remaining migrations can be run after the fact
 using the normal ``migrate`` Django command.
+
+
+Contributing
+============
+
+To get started contributing, you'll want to clone the repository,
+install dependencies via `poetry <https://python-poetry.org/>`_,
+and set up `pre-commit <https://pre-commit.com/>`_.
+
+.. code-block:: bash
+
+    git clone git@github.com:aspiredu/django-safemigrate.git
+    cd django-safemigrate
+    poetry install
+    pre-commit install
+
+To run the tests use:
+
+.. code-block:: bash
+
+    poetry run tox
+
+To publish a new version:
+
+1. Find and replace all instances of the previous version with the new version.
+2. Commit and push that to origin.
+3. Tag the commit with the new version ``get tag 1.0`` and push that to origin.
+4. Create the
+   `new release <https://github.com/aspiredu/django-safemigrate/releases/new>`_
+   on GitHub.
+5. Publish the new version to PyPI with ``poetry publish``.
+
+See `Poetry's docs
+<https://python-poetry.org/docs/repositories/#configuring-credentials>`_
+on how to configure your local environment to publish to PyPI. Key your PyPI
+token to only django-safemigrate.
+
+.. code-block:: bash
+
+    poetry config pypi-token.pypi <my-token>
