@@ -33,3 +33,6 @@ django = ">=3.2,<5.0"
 
 [tool.poetry.dev-dependencies]
 tox = "*"
+
+[tool.poetry.plugins."console_scripts"]
+"safemigrate-check" = "django_safemigrate.check:main"
