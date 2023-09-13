@@ -157,7 +157,7 @@ To publish a new version:
 
 1. Find and replace all instances of the previous version with the new version.
 2. Commit and push that to origin.
-3. Tag the commit with the new version ``get tag 1.0`` and push that to origin.
+3. Tag the commit with the new version ``git tag 1.0`` and push that to origin.
 4. Create the
    `new release <https://github.com/aspiredu/django-safemigrate/releases/new>`_
    on GitHub.
