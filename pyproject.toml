@@ -21,7 +21,7 @@ show_missing = true
 
 [tool.poetry]
 name = "django-safemigrate"
-version = "4.0"
+version = "4.1"
 description = "Safely run migrations before deployment"
 authors = ["Ryan Hiebert <ryan@aspiredu.com>"]
 license = "MIT"
