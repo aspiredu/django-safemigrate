@@ -83,6 +83,26 @@ There are three options for the value of the
   the code change is deployed.
   For example, a migration that changes the ``help_text`` of a field.
 
+Pre-commit Hook
+===============
+
+To get the most from django-safemigrate,
+it is important to make sure that all migrations
+are marked with the appropriate ``safe`` value.
+To help with this, we provide a hook for use with ``pre-commit``.
+`Install and configure pre-commit`_,
+then add this to the ``repos`` key of your ``.pre-commit-config.yaml``:
+
+.. code-block:: yaml
+
+    repos:
+        -   repo: https://github.com/aspiredu/django-safemigrate
+        rev: 4.1
+        hooks:
+        -   id: check
+
+.. _Install and configure pre-commit: https://pre-commit.com/
+
 Nonstrict Mode
 ==============
 
@@ -137,7 +157,7 @@ To publish a new version:
 
 1. Find and replace all instances of the previous version with the new version.
 2. Commit and push that to origin.
-3. Tag the commit with the new version ``get tag 1.0`` and push that to origin.
+3. Tag the commit with the new version ``git tag 1.0`` and push that to origin.
 4. Create the
    `new release <https://github.com/aspiredu/django-safemigrate/releases/new>`_
    on GitHub.

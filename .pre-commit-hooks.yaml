@@ -1,0 +1,9 @@
+-   id: check
+    name: Check migrations safety
+    description: Ensure that all local migrations have been marked for safety.
+    entry: safemigrate-check
+    language: python
+    files: migrations/\d{4}_.+\.py$
+    types: [file, python, text]
+    stages: [pre-commit, pre-merge-commit, pre-push, manual]
+    pass_filenames: true

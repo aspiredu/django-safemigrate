@@ -3,6 +3,7 @@ import pytest
 from django.core.management.base import CommandError
 
 from django_safemigrate import Safe
+from django_safemigrate.check import validate_migrations
 from django_safemigrate.management.commands.safemigrate import Command
 
 
@@ -265,3 +266,37 @@ class TestSafeMigrate:
         plan = [(Migration("spam", "0001_initial", safe=False), False)]
         with pytest.raises(CommandError):
             receiver(plan=plan)
+
+
+class TestCheck:
+    """Exercise the check command."""
+
+    MARKED = """
+from django.db import migrations
+from django_safemigrate import Safe
+
+class Migration(migrations.Migration):
+    safe = Safe.always
+"""
+
+    UNMARKED = """
+from django.db import migrations
+
+class Migration(migrations.Migration):
+    pass
+"""
+
+    def test_validate_migrations_success(self, tmp_path):
+        with open(tmp_path / "0001_initial.py", "w") as f:
+            f.write(self.MARKED)
+        assert validate_migrations([tmp_path / "0001_initial.py"])
+
+    def test_validate_migrations_failure(self, tmp_path):
+        with open(tmp_path / "0001_initial.py", "w") as f:
+            f.write(self.UNMARKED)
+        assert not validate_migrations([tmp_path / "0001_initial.py"])
+
+    def test_validate_migrations_falsematch(self, tmp_path):
+        with open(tmp_path / "0001_initial.py", "w") as f:
+            f.write("THIS IS NOT A MIGRATION")
+        assert validate_migrations([tmp_path / "0001_initial.py"])

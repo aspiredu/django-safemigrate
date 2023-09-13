@@ -1,3 +1,8 @@
+4.1 (2023-09-13)
+++++++++++++++++
+
+* Add a pre-commit hook to ensure migrations have a safe atrribute.
+
 4.0 (2022-10-07)
 ++++++++++++++++
 
