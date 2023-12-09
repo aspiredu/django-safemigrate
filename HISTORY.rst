@@ -1,7 +1,14 @@
+4.2 (TBD)
++++++++++
+
+* Add support for Django 5.0.
+* Add support for Python 3.12.
+* Expand test matrix to all supported combinations of Django and Python.
+
 4.1 (2023-09-13)
 ++++++++++++++++
 
-* Add a pre-commit hook to ensure migrations have a safe atrribute.
+* Add a pre-commit hook to ensure migrations have a safe attribute.
 
 4.0 (2022-10-07)
 ++++++++++++++++
