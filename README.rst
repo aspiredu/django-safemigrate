@@ -97,7 +97,7 @@ then add this to the ``repos`` key of your ``.pre-commit-config.yaml``:
 
     repos:
         -   repo: https://github.com/aspiredu/django-safemigrate
-            rev: "4.1"
+            rev: "4.2"
             hooks:
             -   id: check
 

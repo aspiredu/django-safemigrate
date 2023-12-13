@@ -1,4 +1,4 @@
-4.2 (TBD)
+4.2 (2023-12-13)
 +++++++++
 
 * Add support for Django 5.0.
