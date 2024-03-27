@@ -227,12 +227,57 @@ class TestSafeMigrate:
         This allows the command to succeed where it would normally
         error. This allows for development environments, where
         errors are acceptable during transitions, to avoid having
-        to migrate everything incrementall the way production
+        to migrate everything incrementally the way production
         environments are expected to.
         """
         settings.SAFEMIGRATE = "nonstrict"
         plan = [
             (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy,
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0003_safety",
+                    safe=Safe.before_deploy,
+                    dependencies=[("spam", "0002_followup")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 1
+
+    def test_with_non_safe_migration_nonstrict(self, settings, receiver):
+        """
+        Nonstrict mode allows all migrations, even migrations without a safe attribute.
+
+        """
+        settings.SAFEMIGRATE = "nonstrict"
+        plan = [
+            (
+                Migration(
+                    "auth",
+                    "0001_initial",
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0001_initial",
+                    safe=Safe.before_deploy,
+                    dependencies=[("auth", "0001_initial")],
+                ),
+                False,
+            ),
             (
                 Migration(
                     "spam",
