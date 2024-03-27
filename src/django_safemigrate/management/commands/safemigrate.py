@@ -2,6 +2,8 @@
 
 Migration safety is enforced by a pre_migrate signal receiver.
 """
+from enum import Enum
+
 from django.conf import settings
 from django.core.management.base import CommandError
 from django.core.management.commands import migrate
@@ -10,9 +12,27 @@ from django.db.models.signals import pre_migrate
 from django_safemigrate import Safe
 
 
+class SafeMigrate(Enum):
+    strict = "strict"
+    nonstrict = "nonstrict"
+    disabled = "disabled"
+
+
 def safety(migration):
     """Determine the safety status of a migration."""
     return getattr(migration, "safe", Safe.after_deploy)
+
+
+def safemigrate():
+    state = getattr(settings, "SAFEMIGRATE", None)
+    if state is None:
+        return state
+    try:
+        return SafeMigrate(state.lower())
+    except ValueError as e:
+        raise ValueError(
+            "Invalid SAFEMIGRATE setting, it must be one of 'strict', 'nonstrict', or 'disabled'."
+        ) from e
 
 
 class Command(migrate.Command):
@@ -37,8 +57,13 @@ class Command(migrate.Command):
             return  # Only run once
         self.receiver_has_run = True
 
+        safemigrate_state = safemigrate()
+        if safemigrate_state == SafeMigrate.disabled:
+            # When disabled, run migrate
+            return
+
         # strict by default
-        strict = getattr(settings, "SAFEMIGRATE", None) != "nonstrict"
+        strict = safemigrate_state != SafeMigrate.nonstrict
 
         if any(backward for mig, backward in plan):
             raise CommandError("Backward migrations are not supported.")

@@ -227,7 +227,7 @@ class TestSafeMigrate:
         This allows the command to succeed where it would normally
         error. This allows for development environments, where
         errors are acceptable during transitions, to avoid having
-        to migrate everything incrementall the way production
+        to migrate everything incrementally the way production
         environments are expected to.
         """
         settings.SAFEMIGRATE = "nonstrict"
@@ -254,6 +254,75 @@ class TestSafeMigrate:
         ]
         receiver(plan=plan)
         assert len(plan) == 1
+
+    def test_with_non_safe_migration_nonstrict(self, settings, receiver):
+        """
+        Nonstrict mode allows prevents protected migrations.
+        In this case, that's migrations without a safe attribute.
+        """
+        settings.SAFEMIGRATE = "nonstrict"
+        plan = [
+            (
+                Migration(
+                    "auth",
+                    "0001_initial",
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0001_initial",
+                    safe=Safe.before_deploy,
+                    dependencies=[("auth", "0001_initial")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 0
+
+    def test_with_non_safe_migration_disabled(self, settings, receiver):
+        """Disabled mode allows all migrations"""
+        settings.SAFEMIGRATE = "disabled"
+        plan = [
+            (
+                Migration(
+                    "auth",
+                    "0001_initial",
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0001_initial",
+                    safe=Safe.before_deploy,
+                    dependencies=[("auth", "0001_initial")],
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy,
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0003_safety",
+                    safe=Safe.before_deploy,
+                    dependencies=[("spam", "0002_followup")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 4
 
     def test_string_invalid(self, receiver):
         """Invalid settings of the safe property will raise an error."""

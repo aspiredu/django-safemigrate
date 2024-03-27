@@ -1,3 +1,9 @@
+Pending
+*******
+
+* Add ``settings.SAFEMIGRATE = "disabled"`` setting to disable ``safemigrate``
+  protections.
+
 4.2 (2023-12-13)
 +++++++++
 
