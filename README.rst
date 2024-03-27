@@ -132,6 +132,18 @@ that are not blocked by any unsafe migrations.
 Any remaining migrations can be run after the fact
 using the normal ``migrate`` Django command.
 
+Disabled Mode
+=============
+
+To disable the protections of ``safemigrate`` entirely, add the
+``SAFEMIGRATE`` setting:
+
+.. code-block:: python
+
+    SAFEMIGRATE = "disabled"
+
+In this mode ``safemigrate`` will migrations as if they were
+using the normal ``migrate`` Django command.
 
 Contributing
 ============
