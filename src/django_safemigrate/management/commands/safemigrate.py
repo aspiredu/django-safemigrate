@@ -39,6 +39,9 @@ class Command(migrate.Command):
 
         # strict by default
         strict = getattr(settings, "SAFEMIGRATE", None) != "nonstrict"
+        # If we're in nonstrict mode, we should migrate everything.
+        if not strict:
+            return
 
         if any(backward for mig, backward in plan):
             raise CommandError("Backward migrations are not supported.")
@@ -118,7 +121,7 @@ class Command(migrate.Command):
             for migration in blocked:
                 self.stdout.write(f"  {migration.app_label}.{migration.name}")
 
-        if blocked and strict:
+        if blocked:
             raise CommandError("Aborting due to blocked migrations.")
 
         # Swap out the items in the plan with the safe migrations.

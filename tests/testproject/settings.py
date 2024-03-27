@@ -8,6 +8,10 @@ ALLOWED_HOSTS = []
 USE_TZ = True
 
 # Application definition
-INSTALLED_APPS = ["django_safemigrate.apps.SafeMigrateConfig"]
+INSTALLED_APPS = [
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django_safemigrate.apps.SafeMigrateConfig",
+]
 MIDDLEWARE = []
 ROOT_URLCONF = "testproject.urls"
