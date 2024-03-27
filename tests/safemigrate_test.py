@@ -324,6 +324,13 @@ class TestSafeMigrate:
         receiver(plan=plan)
         assert len(plan) == 4
 
+    def test_safemigrate_invalid_value(self, settings, receiver):
+        """Invalid settings of the SAFEMIGRATE setting will raise an error."""
+        settings.SAFEMIGRATE = "invalid"
+        plan = []
+        with pytest.raises(ValueError):
+            receiver(plan=plan)
+
     def test_string_invalid(self, receiver):
         """Invalid settings of the safe property will raise an error."""
         plan = [(Migration("spam", "0001_initial", safe="before_deploy"), False)]
