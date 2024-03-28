@@ -1,11 +1,14 @@
 Pending
 *******
 
+4.3 (2024-03-28)
+++++++++++++++++
+
 * Add ``settings.SAFEMIGRATE = "disabled"`` setting to disable ``safemigrate``
   protections.
 
 4.2 (2023-12-13)
-+++++++++
+++++++++++++++++
 
 * Add support for Django 5.0.
 * Add support for Python 3.12.
