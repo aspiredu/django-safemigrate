@@ -8,6 +8,8 @@ from django.conf import settings
 from django.core.management.base import CommandError
 from django.core.management.commands import migrate
 from django.db.models.signals import pre_migrate
+from django.utils import timezone
+from django.utils.timesince import timeuntil
 
 from django_safemigrate import Safe, SafeEnum
 
@@ -132,17 +134,8 @@ class Command(migrate.Command):
         delayed = [m for m in migrations if m in delayed]
         blocked = [m for m in migrations if m in blocked]
 
-        # Display delayed migrations if they exist:
-        if delayed:
-            self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
-            for migration in delayed:
-                self.stdout.write(f"  {migration.app_label}.{migration.name}")
-
-        # Display blocked migrations if they exist.
-        if blocked:
-            self.stdout.write(self.style.MIGRATE_HEADING("Blocked migrations:"))
-            for migration in blocked:
-                self.stdout.write(f"  {migration.app_label}.{migration.name}")
+        self.delayed(delayed)
+        self.blocked(blocked)
 
         if blocked and strict:
             raise CommandError("Aborting due to blocked migrations.")
@@ -150,3 +143,33 @@ class Command(migrate.Command):
         # Swap out the items in the plan with the safe migrations.
         # None are backward, so we can always set backward to False.
         plan[:] = [(migration, False) for migration in ready]
+
+    def delayed(self, migrations):
+        """Handle delayed migrations."""
+        # Display delayed migrations if they exist:
+        if migrations:
+            self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
+            for migration in migrations:
+                migration_safe = safety(migration)
+                if (
+                    migration_safe.safe == SafeEnum.after_deploy
+                    and migration_safe.delay is not None
+                ):
+                    now = timezone.localtime()
+                    migrate_date = now + migration_safe.delay
+                    humanized_date = timeuntil(migrate_date, now=now, depth=2)
+                    self.stdout.write(
+                        f"  {migration.app_label}.{migration.name} "
+                        f"(can automatically migrate in {humanized_date} "
+                        f"- {migrate_date.isoformat()})"
+                    )
+                else:
+                    self.stdout.write(f"  {migration.app_label}.{migration.name}")
+
+    def blocked(self, migrations):
+        """Handle blocked migrations."""
+        # Display blocked migrations if they exist.
+        if migrations:
+            self.stdout.write(self.style.MIGRATE_HEADING("Blocked migrations:"))
+            for migration in migrations:
+                self.stdout.write(f"  {migration.app_label}.{migration.name}")

@@ -1,4 +1,7 @@
 """Unit tests for the safemigrate command."""
+from datetime import timedelta
+from io import StringIO
+
 import pytest
 from django.core.management.base import CommandError
 
@@ -104,6 +107,34 @@ class TestSafeMigrate:
         ]
         receiver(plan=plan)
         assert len(plan) == 1
+
+    def test_after_message(self, receiver):
+        """
+        Confirm the delayed messaging of a migration with
+        an after_deploy safety.
+        """
+        migrations = [
+            Migration(
+                "spam",
+                "0001_initial",
+                safe=Safe.after_deploy(delay=(timedelta(days=8))),
+            ),
+            Migration(
+                "spam",
+                "0002_followup",
+                safe=Safe.after_deploy(),
+                dependencies=[("spam", "0001_initial")],
+            ),
+        ]
+        out = StringIO()
+        Command(stdout=out).delayed(migrations)
+        result = out.getvalue().strip()
+        header, migration1, migration2 = result.split("\n", maxsplit=2)
+        assert header == "Delayed migrations:"
+        assert migration1.startswith(
+            "  spam.0001_initial (can automatically migrate in 1\xa0week, 1\xa0day - "
+        )
+        assert migration2 == "  spam.0002_followup"
 
     def test_blocked_by_after(self, receiver):
         """Blocked before migrations indicate a failure state.
