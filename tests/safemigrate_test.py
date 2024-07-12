@@ -66,19 +66,19 @@ class TestSafeMigrate:
 
     def test_all_before(self, receiver):
         """Before migrations will remain in the plan."""
-        plan = [(Migration(safe=Safe.before_deploy), False)]
+        plan = [(Migration(safe=Safe.before_deploy()), False)]
         receiver(plan=plan)
         assert len(plan) == 1
 
     def test_final_after(self, receiver):
         """Run everything except the final migration."""
         plan = [
-            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy,
+                    safe=Safe.after_deploy(),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -90,17 +90,17 @@ class TestSafeMigrate:
     def test_multiple_after(self, receiver):
         """Run up to the first after migration."""
         plan = [
-            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy,
+                    safe=Safe.after_deploy(),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
             ),
-            (Migration("eggs", "0001_followup", safe=Safe.after_deploy), False),
+            (Migration("eggs", "0001_followup", safe=Safe.after_deploy()), False),
         ]
         receiver(plan=plan)
         assert len(plan) == 1
@@ -114,12 +114,12 @@ class TestSafeMigrate:
         block to avoid release failures.
         """
         plan = [
-            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy,
+                    safe=Safe.after_deploy(),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -128,7 +128,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0003_safety",
-                    safe=Safe.before_deploy,
+                    safe=Safe.before_deploy(),
                     dependencies=[("spam", "0002_followup")],
                 ),
                 False,
@@ -145,18 +145,18 @@ class TestSafeMigrate:
         your control to add a dependency to directly.
         """
         plan = [
-            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy,
+                    safe=Safe.after_deploy(),
                     dependencies=[("spam", "0001_initial")],
                     run_before=[("eggs", "0001_safety")],
                 ),
                 False,
             ),
-            (Migration("eggs", "0001_safety", safe=Safe.before_deploy), False),
+            (Migration("eggs", "0001_safety", safe=Safe.before_deploy()), False),
         ]
         with pytest.raises(CommandError):
             receiver(plan=plan)
@@ -164,12 +164,12 @@ class TestSafeMigrate:
     def test_consecutive_after(self, receiver):
         """Consecutive after migrations are ok."""
         plan = [
-            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy,
+                    safe=Safe.after_deploy(),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -178,7 +178,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0003_safety",
-                    safe=Safe.after_deploy,
+                    safe=Safe.after_deploy(),
                     dependencies=[("spam", "0002_followup")],
                 ),
                 False,
@@ -190,12 +190,12 @@ class TestSafeMigrate:
     def test_always_before_after(self, receiver):
         """Always migrations will run before after migrations."""
         plan = [
-            (Migration("spam", "0001_initial", safe=Safe.always), False),
+            (Migration("spam", "0001_initial", safe=Safe.always()), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy,
+                    safe=Safe.after_deploy(),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -207,12 +207,12 @@ class TestSafeMigrate:
     def test_always_after_after(self, receiver):
         """Always migrations will not block after deployments."""
         plan = [
-            (Migration("spam", "0001_initial", safe=Safe.after_deploy), False),
+            (Migration("spam", "0001_initial", safe=Safe.after_deploy()), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.always,
+                    safe=Safe.always(),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -232,12 +232,12 @@ class TestSafeMigrate:
         """
         settings.SAFEMIGRATE = "nonstrict"
         plan = [
-            (Migration("spam", "0001_initial", safe=Safe.before_deploy), False),
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
             (
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy,
+                    safe=Safe.after_deploy(),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -246,7 +246,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0003_safety",
-                    safe=Safe.before_deploy,
+                    safe=Safe.before_deploy(),
                     dependencies=[("spam", "0002_followup")],
                 ),
                 False,
@@ -273,7 +273,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0001_initial",
-                    safe=Safe.before_deploy,
+                    safe=Safe.before_deploy(),
                     dependencies=[("auth", "0001_initial")],
                 ),
                 False,
@@ -297,7 +297,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0001_initial",
-                    safe=Safe.before_deploy,
+                    safe=Safe.before_deploy(),
                     dependencies=[("auth", "0001_initial")],
                 ),
                 False,
@@ -306,7 +306,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0002_followup",
-                    safe=Safe.after_deploy,
+                    safe=Safe.after_deploy(),
                     dependencies=[("spam", "0001_initial")],
                 ),
                 False,
@@ -315,7 +315,7 @@ class TestSafeMigrate:
                 Migration(
                     "spam",
                     "0003_safety",
-                    safe=Safe.before_deploy,
+                    safe=Safe.before_deploy(),
                     dependencies=[("spam", "0002_followup")],
                 ),
                 False,
@@ -344,15 +344,18 @@ class TestSafeMigrate:
             receiver(plan=plan)
 
 
-class TestCheck:
-    """Exercise the check command."""
+class TestCheckMissingSafe:
+    """
+    Test the check command for migrations
+    missing the safe attribute
+    """
 
     MARKED = """
 from django.db import migrations
 from django_safemigrate import Safe
 
 class Migration(migrations.Migration):
-    safe = Safe.always
+    safe = Safe.always()
 """
 
     UNMARKED = """
@@ -376,3 +379,23 @@ class Migration(migrations.Migration):
         with open(tmp_path / "0001_initial.py", "w") as f:
             f.write("THIS IS NOT A MIGRATION")
         assert validate_migrations([tmp_path / "0001_initial.py"])
+
+
+class TestCheckEnumAttribute:
+    """
+    Test the check command for migrations
+    missing the safe attribute
+    """
+
+    ENUM_DEFINITION = """
+from django.db import migrations
+from django_safemigrate import Safe
+
+class Migration(migrations.Migration):
+    safe = Safe.always
+"""
+
+    def test_validate_migrations_failure(self, tmp_path):
+        with open(tmp_path / "0001_initial.py", "w") as f:
+            f.write(self.ENUM_DEFINITION)
+        assert not validate_migrations([tmp_path / "0001_initial.py"])

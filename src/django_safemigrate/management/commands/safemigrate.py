@@ -9,7 +9,7 @@ from django.core.management.base import CommandError
 from django.core.management.commands import migrate
 from django.db.models.signals import pre_migrate
 
-from django_safemigrate import Safe
+from django_safemigrate import Safe, SafeEnum
 
 
 class SafeMigrate(Enum):
@@ -20,7 +20,7 @@ class SafeMigrate(Enum):
 
 def safety(migration):
     """Determine the safety status of a migration."""
-    return getattr(migration, "safe", Safe.after_deploy)
+    return getattr(migration, "safe", Safe.after_deploy())
 
 
 def safemigrate():
@@ -75,7 +75,8 @@ class Command(migrate.Command):
         invalid = [
             migration
             for migration in migrations
-            if not isinstance(safety(migration), Safe) or safety(migration) not in Safe
+            if not isinstance(safety(migration), Safe)
+            or safety(migration).safe not in SafeEnum
         ]
         if invalid:
             self.stdout.write(self.style.MIGRATE_HEADING("Invalid migrations:"))
@@ -88,7 +89,7 @@ class Command(migrate.Command):
         protected = [
             migration
             for migration in migrations
-            if safety(migration) == Safe.after_deploy
+            if safety(migration).safe == SafeEnum.after_deploy
         ]
 
         if not protected:
@@ -102,7 +103,7 @@ class Command(migrate.Command):
         ready = [
             migration
             for migration in migrations
-            if safety(migration) != Safe.after_deploy
+            if safety(migration).safe != SafeEnum.after_deploy
         ]
         delayed = []
         blocked = []
@@ -122,7 +123,7 @@ class Command(migrate.Command):
 
             for migration in block:
                 ready.remove(migration)
-                if safety(migration) == Safe.before_deploy:
+                if safety(migration).safe == SafeEnum.before_deploy:
                     blocked.append(migration)
                 else:
                     delayed.append(migration)

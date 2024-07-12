@@ -45,7 +45,7 @@ such as a migration to add a column.
     from django_safemigrate import Safe
 
     class Migration(migrations.Migration):
-        safe = Safe.before_deploy
+        safe = Safe.before_deploy()
 
 At this point you can run the ``safemigrate`` Django command
 to run the migrations, and only these migrations will run.
@@ -66,18 +66,18 @@ Safety Options
 There are three options for the value of the
 ``safe`` property of the migration.
 
-* ``Safe.before_deploy``
+* ``Safe.before_deploy()``
 
   This migration is only safe to run before the code change is deployed.
   For example, a migration that adds a new field to a model.
 
-* ``Safe.after_deploy``
+* ``Safe.after_deploy()``
 
   This migration is only safe to run after the code change is deployed.
   This is the default that is applied if no ``safe`` property is given.
   For example, a migration that removes a field from a model.
 
-* ``Safe.always``
+* ``Safe.always()``
 
   This migration is safe to run before *and* after
   the code change is deployed.

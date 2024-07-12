@@ -3,6 +3,12 @@ Pending
 
 * Add support for Django 5.1.
 * Drop support for Django 3.2, 4.0, 4.1.
+* Convert ``Safe`` to be a custom class rather than an ``Enum``.
+* The valid values for ``safe`` are:
+
+  * ``Safe.before_deploy()``
+  * ``Safe.after_deploy()``
+  * ``Safe.always()``
 
 4.3 (2024-03-28)
 ++++++++++++++++
