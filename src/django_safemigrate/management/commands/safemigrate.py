@@ -7,11 +7,13 @@ from enum import Enum
 from django.conf import settings
 from django.core.management.base import CommandError
 from django.core.management.commands import migrate
+from django.db.migrations import Migration
 from django.db.models.signals import pre_migrate
 from django.utils import timezone
 from django.utils.timesince import timeuntil
 
 from django_safemigrate import Safe, SafeEnum
+from django_safemigrate.models import SafeMigration
 
 
 class SafeMigrate(Enum):
@@ -20,7 +22,7 @@ class SafeMigrate(Enum):
     disabled = "disabled"
 
 
-def safety(migration):
+def safety(migration: Migration):
     """Determine the safety status of a migration."""
     return getattr(migration, "safe", Safe.after_deploy())
 
@@ -37,13 +39,51 @@ def safemigrate():
         ) from e
 
 
+def filter_migrations(
+    migrations: list[Migration],
+) -> tuple[list[Migration], list[Migration]]:
+    """
+    Filter migrations into ready and protected migrations.
+
+    A protected migration is one that's marked Safe.after_deploy()
+    and has not yet passed its delay value.
+    """
+    now = timezone.now()
+
+    detected_map = SafeMigration.objects.get_detected_map(
+        [(m.app_label, m.name) for m in migrations]
+    )
+
+    def is_protected(migration):
+        migration_safe = safety(migration)
+        detected = detected_map.get((migration.app_label, migration.name))
+        # A migration is protected if detected is None or delay is not specified.
+        return migration_safe.safe == SafeEnum.after_deploy and (
+            detected is None
+            or migration_safe.delay is None
+            or now < (detected + migration_safe.delay)
+        )
+
+    ready = []
+    protected = []
+
+    for migration in migrations:
+        if is_protected(migration):
+            protected.append(migration)
+        else:
+            ready.append(migration)
+    return ready, protected
+
+
 class Command(migrate.Command):
     """Run database migrations that are safe to run before deployment."""
 
     help = "Run database migrations that are safe to run before deployment."
     receiver_has_run = False
+    fake = False
 
     def handle(self, *args, **options):
+        self.fake = options.get("fake", False)
         # Only connect the handler when this command is run to
         # avoid running for tests.
         pre_migrate.connect(
@@ -88,11 +128,7 @@ class Command(migrate.Command):
                 "Aborting due to migrations with invalid safe properties."
             )
 
-        protected = [
-            migration
-            for migration in migrations
-            if safety(migration).safe == SafeEnum.after_deploy
-        ]
+        ready, protected = filter_migrations(migrations)
 
         if not protected:
             return  # No migrations to protect.
@@ -102,11 +138,6 @@ class Command(migrate.Command):
         for migration in protected:
             self.stdout.write(f"  {migration.app_label}.{migration.name}")
 
-        ready = [
-            migration
-            for migration in migrations
-            if safety(migration).safe != SafeEnum.after_deploy
-        ]
         delayed = []
         blocked = []
 
@@ -139,6 +170,15 @@ class Command(migrate.Command):
 
         if blocked and strict:
             raise CommandError("Aborting due to blocked migrations.")
+
+        # Only mark migrations as detected if not faking
+        if not self.fake:
+            # The detection datetime is what's used to determine if an
+            # after_deploy() with a delay can be migrated or not.
+            for migration in migrations:
+                SafeMigration.objects.get_or_create(
+                    app=migration.app_label, name=migration.name
+                )
 
         # Swap out the items in the plan with the safe migrations.
         # None are backward, so we can always set backward to False.

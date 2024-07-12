@@ -4,10 +4,12 @@ from io import StringIO
 
 import pytest
 from django.core.management.base import CommandError
+from django.utils import timezone
 
 from django_safemigrate import Safe
 from django_safemigrate.check import validate_migrations
 from django_safemigrate.management.commands.safemigrate import Command
+from django_safemigrate.models import SafeMigration
 
 
 class Migration:
@@ -29,6 +31,9 @@ class Migration:
 
 class TestSafeMigrate:
     """Unit tests for the safemigrate command."""
+
+    # Identify all tests in this class as pytest.mark.django_db
+    pytestmark = pytest.mark.django_db
 
     @pytest.fixture
     def receiver(self):
@@ -107,6 +112,150 @@ class TestSafeMigrate:
         ]
         receiver(plan=plan)
         assert len(plan) == 1
+
+    def test_after_with_passed_delay(self, receiver):
+        """Run through the delayed after_deploy migration."""
+        SafeMigration.objects.create(
+            app="spam", name="0001_initial", detected=timezone.now() - timedelta(days=1)
+        )
+        SafeMigration.objects.create(
+            app="spam",
+            name="0002_followup",
+            detected=timezone.now() - timedelta(days=1),
+        )
+        plan = [
+            (
+                Migration(
+                    "spam",
+                    "0001_initial",
+                    safe=Safe.after_deploy(delay=timedelta(hours=12)),
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(delay=timedelta(days=2)),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 1
+        assert plan[0][0].name == "0001_initial"
+
+    def test_after_blocks_passed_delay(self, receiver):
+        """
+        An after_deploy migration without a delay blocks a after_deploy
+        migration with a passed delay.
+        """
+        SafeMigration.objects.create(
+            app="spam", name="0001_initial", detected=timezone.now() - timedelta(days=1)
+        )
+        SafeMigration.objects.create(
+            app="spam",
+            name="0002_followup",
+            detected=timezone.now() - timedelta(days=1),
+        )
+        plan = [
+            (
+                Migration(
+                    "spam",
+                    "0001_initial",
+                    safe=Safe.after_deploy(delay=timedelta(days=2)),
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(delay=timedelta(hours=12)),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 0
+
+    def test_after_with_no_detected_blocks_passed_delay(self, receiver):
+        """
+        An after_deploy migration without a detected blocks a after_deploy
+        migration with a passed delay.
+        """
+        SafeMigration.objects.create(
+            app="spam",
+            name="0002_followup",
+            detected=timezone.now() - timedelta(days=1),
+        )
+        plan = [
+            (
+                Migration(
+                    "spam",
+                    "0001_initial",
+                    safe=Safe.after_deploy(delay=timedelta(days=2)),
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(delay=timedelta(hours=12)),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 0
+
+    def test_after_with_no_delay_blocks_passed_delay(self, receiver):
+        """
+        An after_deploy migration without a delay blocks a after_deploy
+        migration with a passed delay.
+        """
+        SafeMigration.objects.create(
+            app="spam", name="0001_initial", detected=timezone.now() - timedelta(days=1)
+        )
+        SafeMigration.objects.create(
+            app="spam",
+            name="0002_followup",
+            detected=timezone.now() - timedelta(days=1),
+        )
+        plan = [
+            (Migration("spam", "0001_initial", safe=Safe.after_deploy()), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(delay=timedelta(hours=12)),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 0
+
+    def test_after_doesnt_apply_on_first_run(self, receiver):
+        """An after_deploy migration with a passed delay only can't run
+        on the same command it was detected."""
+        plan = [
+            (
+                Migration(
+                    "spam",
+                    "0001_initial",
+                    safe=Safe.after_deploy(delay=timedelta(hours=-1)),
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 0
 
     def test_after_message(self, receiver):
         """
@@ -373,6 +522,64 @@ class TestSafeMigrate:
         plan = [(Migration("spam", "0001_initial", safe=False), False)]
         with pytest.raises(CommandError):
             receiver(plan=plan)
+
+    def test_migrations_not_detected_when_blocked(self, receiver):
+        """If the plan can't advance, the migrations shouldn't be marked as detected."""
+        plan = [
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0003_safety",
+                    safe=Safe.before_deploy(),
+                    dependencies=[("spam", "0002_followup")],
+                ),
+                False,
+            ),
+        ]
+        with pytest.raises(CommandError):
+            receiver(plan=plan)
+        assert not SafeMigration.objects.exists()
+
+    def test_migrations_are_detected(self, receiver):
+        """If the plan can't advance, the migrations shouldn't be marked as detected."""
+        existing = SafeMigration.objects.create(
+            app="spam", name="0001_initial", detected=timezone.now() - timedelta(days=1)
+        )
+        plan = [
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0003_safety",
+                    safe=Safe.after_deploy(),
+                    dependencies=[("spam", "0002_followup")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert SafeMigration.objects.count() == 3
+        # Confirm the existing value is not updated
+        assert SafeMigration.objects.filter(detected__gt=existing.detected).count() == 2
 
 
 class TestCheckMissingSafe:

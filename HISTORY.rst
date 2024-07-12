@@ -9,6 +9,8 @@ Pending
   * ``Safe.before_deploy()``
   * ``Safe.after_deploy()``
   * ``Safe.always()``
+* Add support for allowing a ``Safe.after_deploy(delay=timedelta())``
+  migration to be migrated after the delay has passed.
 
 4.3 (2024-03-28)
 ++++++++++++++++
