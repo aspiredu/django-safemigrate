@@ -3,7 +3,155 @@ name: Build
 on: push
 
 jobs:
-  tests:
+  mysql:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+        - "3.8"
+        - "3.9"
+        - "3.10"
+        - "3.11"
+        - "3.12"
+
+    services:
+      mariadb:
+        image: mariadb
+        env:
+          MARIADB_ROOT_PASSWORD: django_safemigrate
+        options: >-
+          --health-cmd "mariadb-admin ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+        - 3306:3306
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Get pip cache dir
+        id: pip-cache
+        run: |
+          echo "::set-output name=dir::$(pip cache dir)"
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key:
+            ${{ matrix.python-version }}-v1-${{ hashFiles('**/pyproject.toml') }}-${{ hashFiles('**/tox.ini') }}
+          restore-keys: |
+            ${{ matrix.python-version }}-v1-
+
+      - name: Install Tox
+        run: python -m pip install --upgrade pip tox tox-gh-actions coverage[toml]
+
+      - name: Run tox
+        env:
+          DB_BACKEND: mysql
+          DB_USER: root
+          DB_PASSWORD: django_safemigrate
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+        run: |
+          tox
+          python -m coverage combine
+          python -m coverage xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          name: Python ${{ matrix.python-version }} MySQL
+          files: "coverage.xml"
+          fail_ci_if_error: true
+          verbose: true
+
+
+  postgres:
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.8', '3.9', '3.10', '3.11', '3.12']
+        database: [postgresql]
+        # Add psycopg3 to our matrix for modern python versions
+        include:
+            - python-version: '3.10'
+              database: psycopg3
+            - python-version: '3.11'
+              database: psycopg3
+            - python-version: '3.12'
+              database: psycopg3
+
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_DB: django_safemigrate
+          POSTGRES_USER: django_safemigrate
+          POSTGRES_PASSWORD: django_safemigrate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Get pip cache dir
+        id: pip-cache
+        run: |
+          echo "::set-output name=dir::$(pip cache dir)"
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pip-cache.outputs.dir }}
+          key:
+            ${{ matrix.python-version }}-v1-${{ hashFiles('**/pyproject.toml') }}-${{ hashFiles('**/tox.ini') }}
+          restore-keys: |
+            ${{ matrix.python-version }}-v1-
+
+      - name: Install Tox
+        run: python -m pip install --upgrade pip tox tox-gh-actions coverage[toml]
+
+      - name: Run tox
+        env:
+          DB_BACKEND: ${{ matrix.database }}
+          DB_HOST: localhost
+          DB_PORT: 5432
+        run: |
+          tox
+          python -m coverage combine
+          python -m coverage xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          name: Python ${{ matrix.python-version }} ${{ matrix.database }}
+          files: "coverage.xml"
+          fail_ci_if_error: true
+          verbose: true
+
+
+  sqlite:
     strategy:
       fail-fast: false
       matrix:
@@ -40,6 +188,9 @@ jobs:
         run: python -m pip install --upgrade pip tox tox-gh-actions coverage[toml]
 
       - name: Run tox
+        env:
+          DB_BACKEND: sqlite3
+          DB_NAME: ":memory:"
         run: |
           tox
           python -m coverage combine
@@ -49,7 +200,7 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          name: Python ${{ matrix.python-version }}
+          name: Python ${{ matrix.python-version }} SQLite
           files: "coverage.xml"
           fail_ci_if_error: true
           verbose: true
