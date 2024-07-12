@@ -1,6 +1,9 @@
 Pending
 *******
 
+* Add support for Django 5.1.
+* Drop support for Django 3.2, 4.0, 4.1.
+
 4.3 (2024-03-28)
 ++++++++++++++++
 
