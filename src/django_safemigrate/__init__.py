@@ -26,8 +26,3 @@ class Safe:
     @classmethod
     def after_deploy(cls, *, delay: timedelta = None):
         return cls(safe=SafeEnum.after_deploy, delay=delay)
-
-    def __eq__(self, other):
-        if isinstance(other, self.__class__):
-            return other.safe == self.safe and other.delay == self.delay
-        raise TypeError()
