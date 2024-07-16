@@ -12,19 +12,25 @@ MIGRATION_PATTERN = re.compile(r"class\s+(?P<MigrationClass>\w+)\s?\(.*Migration
 MISSING_SAFE_MESSAGE = (
     "{file_path}: {migration_class} is missing the 'safe' attribute.\n"
 )
+UPGRADE_SAFE_DEFINITION_MESSAGE = "{file_path}: {migration_class} is using `{definition}` when it should be using `{corrected}`\n"
 FAILURE_MESSAGE = (
     "\n"
     "Add the following to the migration class:\n"
     "\n"
     "from django_safemigrate import Safe\n"
     "class Migration(migrations.Migration):\n"
-    "    safe = Safe.before_deploy\n"
+    "    safe = Safe.before_deploy()\n"
     "\n"
     "You can also use the following:\n"
-    "    safe = Safe.always\n"
-    "    safe = Safe.after_deploy\n"
+    "    safe = Safe.always()\n"
+    "    safe = Safe.after_deploy()\n"
     "\n"
 )
+ENUM_DEFINITIONS = [
+    "safe = Safe.always\n",
+    "safe = Safe.after_deploy\n",
+    "safe = Safe.before_deploy\n",
+]
 
 
 def validate_migrations(files):
@@ -43,6 +49,19 @@ def validate_migrations(files):
                         file_path=file_path, migration_class=migration_class
                     )
                 )
+            for definition in ENUM_DEFINITIONS:
+                if definition in content:
+                    definition = definition.replace("\n", "")
+                    corrected = f"{definition}()"
+                    success = False
+                    sys.stdout.write(
+                        UPGRADE_SAFE_DEFINITION_MESSAGE.format(
+                            file_path=file_path,
+                            migration_class=migration_class,
+                            definition=definition,
+                            corrected=corrected,
+                        )
+                    )
     if not success:
         sys.stdout.write(FAILURE_MESSAGE)
     return success
