@@ -550,8 +550,36 @@ class TestSafeMigrate:
             receiver(plan=plan)
         assert not SafeMigration.objects.exists()
 
+    def test_migrations_not_detected_when_faked(self, receiver):
+        """If migrate command is faked, the migrations shouldn't be marked as detected."""
+        plan = [
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.after_deploy(),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+            (
+                Migration(
+                    "spam",
+                    "0003_safety",
+                    safe=Safe.after_deploy(),
+                    dependencies=[("spam", "0002_followup")],
+                ),
+                False,
+            ),
+        ]
+        command = Command()
+        command.fake = True
+        command.pre_migrate_receiver(plan=plan)
+        assert SafeMigration.objects.count() == 0
+
     def test_migrations_are_detected(self, receiver):
-        """If the plan can't advance, the migrations shouldn't be marked as detected."""
+        """Migrations should be marked as detected during the happy flow."""
         existing = SafeMigration.objects.create(
             app="spam", name="0001_initial", detected=timezone.now() - timedelta(days=1)
         )
