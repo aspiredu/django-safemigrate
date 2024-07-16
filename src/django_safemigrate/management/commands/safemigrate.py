@@ -2,6 +2,8 @@
 
 Migration safety is enforced by a pre_migrate signal receiver.
 """
+from __future__ import annotations
+
 from enum import Enum
 
 from django.conf import settings

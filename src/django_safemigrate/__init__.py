@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import timedelta
 from enum import Enum
-from typing import Optional
 
 
 class SafeEnum(Enum):
@@ -13,7 +14,7 @@ class SafeEnum(Enum):
 @dataclass
 class Safe:
     safe: SafeEnum
-    delay: Optional[timedelta] = None
+    delay: timedelta | None = None
 
     @classmethod
     def always(cls):
