@@ -53,11 +53,8 @@ jobs:
 
       - name: Run tox
         env:
-          DB_BACKEND: mysql
-          DB_USER: root
-          DB_PASSWORD: django_safemigrate
-          DB_HOST: 127.0.0.1
-          DB_PORT: 3306
+          DB: mysql
+          DATABASE_URL: "mysql://root:django_safemigrate@127.0.0.1/django_safemigrate"
         run: |
           tox
           python -m coverage combine
@@ -81,15 +78,15 @@ jobs:
           - "3.10"
           - "3.11"
           - "3.12"
-        database: [postgresql]
+        database: [pg2]
         # Add psycopg3 to our matrix for modern python versions
         include:
             - python-version: '3.10'
-              database: psycopg3
+              database: pg3
             - python-version: '3.11'
-              database: psycopg3
+              database: pg3
             - python-version: '3.12'
-              database: psycopg3
+              database: pg3
 
     services:
       postgres:
@@ -134,9 +131,8 @@ jobs:
 
       - name: Run tox
         env:
-          DB_BACKEND: ${{ matrix.database }}
-          DB_HOST: localhost
-          DB_PORT: 5432
+          DB: ${{ matrix.database }}
+          DATABASE_URL: "postgresql://django_safemigrate:django_safemigrate@localhost/django_safemigrate"
         run: |
           tox
           python -m coverage combine
@@ -190,8 +186,8 @@ jobs:
 
       - name: Run tox
         env:
-          DB_BACKEND: sqlite3
-          DB_NAME: ":memory:"
+          DB: sqlite
+          DATABASE_URL: "sqlite:///:memory:"
         run: |
           tox
           python -m coverage combine
