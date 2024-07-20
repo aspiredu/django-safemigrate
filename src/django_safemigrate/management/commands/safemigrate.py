@@ -2,8 +2,10 @@
 
 Migration safety is enforced by a pre_migrate signal receiver.
 """
+
 from __future__ import annotations
 
+from functools import cached_property
 from enum import Enum
 
 from django.conf import settings
@@ -14,67 +16,27 @@ from django.db.models.signals import pre_migrate
 from django.utils import timezone
 from django.utils.timesince import timeuntil
 
-from django_safemigrate import Safe, SafeEnum
+from django_safemigrate import Safe, When
 from django_safemigrate.models import SafeMigration
 
 
-class SafeMigrate(Enum):
-    strict = "strict"
-    nonstrict = "nonstrict"
-    disabled = "disabled"
+class Mode(Enum):
+    """The mode of operation for safemigrate.
 
+    STRICT, the default mode, will throw an error if migrations
+    marked Safe.before_deploy() are blocked by unrun migrations that
+    are marked Safe.after_deploy() with an unfulfilled delay.
 
-def safety(migration: Migration):
-    """Determine the safety status of a migration."""
-    return getattr(migration, "safe", Safe.after_deploy())
+    NONSTRICT will run the same migrations as strict mode, but will
+    not throw an error if migrations are blocked.
 
-
-def safemigrate():
-    state = getattr(settings, "SAFEMIGRATE", None)
-    if state is None:
-        return state
-    try:
-        return SafeMigrate(state.lower())
-    except ValueError as e:
-        raise ValueError(
-            "Invalid SAFEMIGRATE setting, it must be one of 'strict', 'nonstrict', or 'disabled'."
-        ) from e
-
-
-def filter_migrations(
-    migrations: list[Migration],
-) -> tuple[list[Migration], list[Migration]]:
+    DISABLED will completely bypass safemigrate protections and run
+    exactly the same as the standard migrate command.
     """
-    Filter migrations into ready and protected migrations.
 
-    A protected migration is one that's marked Safe.after_deploy()
-    and has not yet passed its delay value.
-    """
-    now = timezone.now()
-
-    detected_map = SafeMigration.objects.get_detected_map(
-        [(m.app_label, m.name) for m in migrations]
-    )
-
-    def is_protected(migration):
-        migration_safe = safety(migration)
-        detected = detected_map.get((migration.app_label, migration.name))
-        # A migration is protected if detected is None or delay is not specified.
-        return migration_safe.safe == SafeEnum.after_deploy and (
-            detected is None
-            or migration_safe.delay is None
-            or now < (detected + migration_safe.delay)
-        )
-
-    ready = []
-    protected = []
-
-    for migration in migrations:
-        if is_protected(migration):
-            protected.append(migration)
-        else:
-            ready.append(migration)
-    return ready, protected
+    STRICT = "strict"
+    NONSTRICT = "nonstrict"
+    DISABLED = "disabled"
 
 
 class Command(migrate.Command):
@@ -93,34 +55,89 @@ class Command(migrate.Command):
         )
         super().handle(*args, **options)
 
-    def pre_migrate_receiver(self, *, plan, **_):
-        """Handle the pre_migrate receiver for all apps."""
+    def pre_migrate_receiver(self, *, plan: list[tuple[Migration, bool]], **_):
+        """Modify the migration plan to apply deployment safety."""
         if self.receiver_has_run:
-            # Can't just look for the run for the current app,
-            # because it only sends the signal to apps with models.
             return  # Only run once
         self.receiver_has_run = True
 
-        safemigrate_state = safemigrate()
-        if safemigrate_state == SafeMigrate.disabled:
-            # When disabled, run migrate
-            return
+        if self.mode == Mode.DISABLED:
+            return  # Run migrate normally
 
-        # strict by default
-        strict = safemigrate_state != SafeMigrate.nonstrict
-
-        if any(backward for mig, backward in plan):
+        if any(backward for _, backward in plan):
             raise CommandError("Backward migrations are not supported.")
 
-        # Pull the migrations into a new list
-        migrations = [migration for migration, backward in plan]
+        # Resolve the configuration for each migration
+        config = {migration: self.safe(migration) for migration, _ in plan}
 
-        # Check for invalid safe properties
+        # Give a command error if any safe configuration is invalid
+        self.validate(config)
+
+        # Get the dates of when migrations were detected
+        detected = self.detected(config)
+
+        # Resolve the current status for each migration respecting delays
+        resolved = self.resolve(config, detected)
+
+        # Categorize the migrations for display and action
+        ready, delayed, blocked = self.categorize(resolved)
+
+        # Blocked migrations require delayed migrations
+        if not delayed:
+            return  # Run all the migrations
+
+        # Display the delayed migrations
+        self.write_delayed(delayed, config, resolved, detected)
+
+        # Display the blocked migrations
+        if blocked:
+            self.write_blocked(blocked)
+
+        if blocked and self.mode == Mode.STRICT:
+            raise CommandError("Aborting due to blocked migrations.")
+
+        # Mark the delayed migrations as detected if not faking
+        if not self.fake:
+            self.detect(
+                [
+                    migration
+                    for migration in delayed
+                    if config[migration].when == When.AFTER_DEPLOY
+                    and config[migration].delay is not None
+                ]
+            )
+
+        # Swap out the items in the plan with the safe migrations.
+        # None are backward, so we can always set backward to False.
+        plan[:] = [(migration, False) for migration in ready]
+
+    @cached_property
+    def mode(self):
+        """Determine the configured mode of operation for safemigrate."""
+        try:
+            return Mode(getattr(settings, "SAFEMIGRATE", "strict").lower())
+        except ValueError:
+            raise ValueError(
+                "The SAFEMIGRATE setting is invalid."
+                " It must be one of 'strict', 'nonstrict', or 'disabled'."
+            )
+
+    @staticmethod
+    def safe(migration: Migration) -> Safe:
+        """Determine the safety setting of a migration."""
+        callables = [Safe.before_deploy, Safe.after_deploy, Safe.always]
+        safe = getattr(migration, "safe", Safe.always)
+        return safe() if safe in callables else safe
+
+    def validate(self, config):
+        """Check for invalid safe configurations.
+
+        Exit with a command error if any configurations are invalid.
+        """
         invalid = [
             migration
-            for migration in migrations
-            if not isinstance(safety(migration), Safe)
-            or safety(migration).safe not in SafeEnum
+            for migration, safe in config.items()
+            if not isinstance(safe, Safe)
         ]
         if invalid:
             self.stdout.write(self.style.MIGRATE_HEADING("Invalid migrations:"))
@@ -130,88 +147,144 @@ class Command(migrate.Command):
                 "Aborting due to migrations with invalid safe properties."
             )
 
-        ready, protected = filter_migrations(migrations)
+    def detected(
+        self, config: dict[Migration, Safe]
+    ) -> dict[Migration, timezone.datetime]:
+        """Get the detected dates for each migration."""
+        detected_map = SafeMigration.objects.get_detected_map(
+            [
+                (migration.app_label, migration.name)
+                for migration, safe in config.items()
+                if safe.when == When.AFTER_DEPLOY and safe.delay is not None
+            ]
+        )
+        return {
+            migration: detected_map[(migration.app_label, migration.name)]
+            for migration in config
+            if (migration.app_label, migration.name) in detected_map
+        }
 
-        if not protected:
-            return  # No migrations to protect.
+    def resolve(
+        self,
+        config: dict[Migration, Safe],
+        detected: dict[Migration, timezone.datetime],
+    ) -> dict[Migration, When]:
+        """Resolve the current status of each migration.
 
-        # Display the migrations that are protected
-        self.stdout.write(self.style.MIGRATE_HEADING("Protected migrations:"))
-        for migration in protected:
-            self.stdout.write(f"  {migration.app_label}.{migration.name}")
+        ``When.AFTER_DEPLOY`` migrations are resolved to ``When.ALWAYS``
+        if they have previously been detected and their delay has passed.
+        """
+        now = timezone.now()
+        return {
+            migration: (
+                When.ALWAYS
+                if safe.when == When.AFTER_DEPLOY
+                and safe.delay is not None
+                and migration in detected
+                and detected[migration] + safe.delay <= now
+                else safe.when
+            )
+            for migration, safe in config.items()
+        }
 
-        delayed = []
+    def categorize(
+        self, resolved: dict[Migration, When]
+    ) -> tuple[list[Migration], list[Migration], list[Migration]]:
+        """Categorize the migrations as ready, delayed, or blocked.
+
+        Ready migrations are ready to be run immediately.
+
+        Delayed migrations cannot be run immediately, but are safe to run
+        after deployment.
+
+        Blocked migrations are dependent on a delayed migration, but
+        either need to run before deployment or depend on a migration
+        that needs to run before deployment.
+        """
+        ready = [mig for mig, when in resolved.items() if when != When.AFTER_DEPLOY]
+        delayed = [mig for mig, when in resolved.items() if when == When.AFTER_DEPLOY]
         blocked = []
 
-        while True:
-            blockers = protected + delayed + blocked
-            blockers_deps = [(m.app_label, m.name) for m in blockers]
-            to_block_deps = [dep for mig in blockers for dep in mig.run_before]
-            block = [
+        if not delayed and not blocked:
+            return ready, delayed, blocked
+
+        def to_block(target, blockers):
+            """Find a round of migrations that depend on these blockers."""
+            blocker_deps = [(m.app_label, m.name) for m in blockers]
+            to_block_deps = [dep for m in blockers for dep in m.run_before]
+            return [
                 migration
-                for migration in ready
-                if any(dep in blockers_deps for dep in migration.dependencies)
+                for migration in target
+                if any(dep in blocker_deps for dep in migration.dependencies)
                 or (migration.app_label, migration.name) in to_block_deps
             ]
+
+        # Delay or block ready migrations that are behind delayed migrations.
+        while True:
+            block = to_block(ready, delayed + blocked)
             if not block:
                 break
 
             for migration in block:
                 ready.remove(migration)
-                if safety(migration).safe == SafeEnum.before_deploy:
+                if resolved[migration] == When.BEFORE_DEPLOY:
                     blocked.append(migration)
                 else:
                     delayed.append(migration)
 
+        # Block delayed migrations that are behind other blocked migrations.
+        while True:
+            block = to_block(delayed, blocked)
+            if not block:
+                break
+
+            for migration in block:
+                delayed.remove(migration)
+                blocked.append(migration)
+
         # Order the migrations in the order of the original plan.
-        delayed = [m for m in migrations if m in delayed]
-        blocked = [m for m in migrations if m in blocked]
+        ready = [m for m in resolved if m in ready]
+        delayed = [m for m in resolved if m in delayed]
+        blocked = [m for m in resolved if m in blocked]
 
-        self.delayed(delayed)
-        self.blocked(blocked)
+        return ready, delayed, blocked
 
-        if blocked and strict:
-            raise CommandError("Aborting due to blocked migrations.")
-
-        # Only mark migrations as detected if not faking
-        if not self.fake:
-            # The detection datetime is what's used to determine if an
-            # after_deploy() with a delay can be migrated or not.
-            for migration in migrations:
-                SafeMigration.objects.get_or_create(
-                    app=migration.app_label, name=migration.name
+    def write_delayed(
+        self,
+        migrations: list[Migration],
+        config: dict[Migration, Safe],
+        resolved: dict[Migration, When],
+        detected: dict[Migration, timezone.datetime],
+    ):
+        """Display delayed migrations."""
+        self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
+        for migration in migrations:
+            if (
+                resolved[migration] == When.AFTER_DEPLOY
+                and config[migration].delay is not None
+            ):
+                now = timezone.localtime()
+                migrate_date = detected.get(migration, now) + config[migration].delay
+                humanized_date = timeuntil(migrate_date, now=now, depth=2)
+                self.stdout.write(
+                    f"  {migration.app_label}.{migration.name} "
+                    f"(can automatically migrate in {humanized_date} "
+                    f"- {migrate_date.isoformat()})"
                 )
-
-        # Swap out the items in the plan with the safe migrations.
-        # None are backward, so we can always set backward to False.
-        plan[:] = [(migration, False) for migration in ready]
-
-    def delayed(self, migrations):
-        """Handle delayed migrations."""
-        # Display delayed migrations if they exist:
-        if migrations:
-            self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
-            for migration in migrations:
-                migration_safe = safety(migration)
-                if (
-                    migration_safe.safe == SafeEnum.after_deploy
-                    and migration_safe.delay is not None
-                ):
-                    now = timezone.localtime()
-                    migrate_date = now + migration_safe.delay
-                    humanized_date = timeuntil(migrate_date, now=now, depth=2)
-                    self.stdout.write(
-                        f"  {migration.app_label}.{migration.name} "
-                        f"(can automatically migrate in {humanized_date} "
-                        f"- {migrate_date.isoformat()})"
-                    )
-                else:
-                    self.stdout.write(f"  {migration.app_label}.{migration.name}")
-
-    def blocked(self, migrations):
-        """Handle blocked migrations."""
-        # Display blocked migrations if they exist.
-        if migrations:
-            self.stdout.write(self.style.MIGRATE_HEADING("Blocked migrations:"))
-            for migration in migrations:
+            else:
                 self.stdout.write(f"  {migration.app_label}.{migration.name}")
+
+    def write_blocked(self, migrations: list[Migration]):
+        """Display blocked migrations."""
+        self.stdout.write(self.style.MIGRATE_HEADING("Blocked migrations:"))
+        for migration in migrations:
+            self.stdout.write(f"  {migration.app_label}.{migration.name}")
+
+    def detect(self, migrations):
+        """Mark the given migrations as detected."""
+        # The detection datetime is what's used to determine if an
+        # after_deploy() with a delay can be migrated or not.
+        for migration in migrations:
+            SafeMigration.objects.get_or_create(
+                app=migration.app_label, name=migration.name
+            )

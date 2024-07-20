@@ -1,16 +1,26 @@
-Pending
-*******
+5.0 (TBD)
+*********
 
 * Add support for Django 5.1.
 * Drop support for Django 3.2, 4.0, 4.1.
 * Convert ``Safe`` to be a custom class rather than an ``Enum``.
-* The valid values for ``safe`` are:
+* The standard values of ``Safe`` now support being called. For example:
 
   * ``Safe.before_deploy()``
   * ``Safe.after_deploy()``
   * ``Safe.always()``
 * Add support for allowing a ``Safe.after_deploy(delay=timedelta())``
   migration to be migrated after the delay has passed.
+* Change the default value of ``safe`` to ``Safe.always``.
+  This is a better default for third party apps that are not using
+  ``django_safemigrate``.
+* ``Safe.after_deploy`` and ``Safe.always`` migrations will be
+  reported as blocked if they are behind a blocked ``Safe.before_deploy``
+  migration.
+* ``Safe.after_deploy`` migrations are now reported along with other
+  delayed migrations instead of being separately reported as protected.
+* Use PEP8 compliant capitalization for enums internally. This doesn't
+  affect any documented API usage.
 
 4.3 (2024-03-28)
 ++++++++++++++++

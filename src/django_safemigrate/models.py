@@ -7,7 +7,9 @@ from django.utils.translation import gettext_lazy as _
 
 
 class SafeMigrationManager(models.Manager):
-    def get_detected_map(self, app_model_pairs: list[tuple[str, str]]):
+    def get_detected_map(
+        self, app_model_pairs: list[tuple[str, str]]
+    ) -> dict[tuple[str, str], timezone.datetime]:
         detection_qs = (
             self.get_queryset()
             .annotate(
@@ -34,7 +36,9 @@ class SafeMigration(models.Model):
     name = models.CharField(max_length=255)
     detected = models.DateTimeField(
         help_text=_(
-            "The time the migration was detected. This is used to determine when a migration with Safe.after_deploy() should be migrated."
+            "The time the migration was detected."
+            " This is used to determine when a migration with"
+            " Safe.after_deploy() should be migrated."
         ),
         default=timezone.now,
     )
