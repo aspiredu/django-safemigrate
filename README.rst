@@ -33,7 +33,7 @@ Install ``django-safemigrate``, then add this to the
 
     INSTALLED_APPS = [
         # ...
-        "django_safemigrate.apps.SafeMigrateConfig",
+        "django_safemigrate",
     ]
 
 Then mark any migration that may be run
