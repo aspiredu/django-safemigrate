@@ -1,4 +1,5 @@
 """Unit tests for the safemigrate command."""
+
 from datetime import timedelta
 from io import StringIO
 
@@ -66,11 +67,17 @@ class TestSafeMigrate:
         with pytest.raises(CommandError):
             receiver(plan=plan)
 
-    def default_after(self, receiver):
-        """Migrations are after by default."""
-        plan = [(Migration(), False)]
+    def test_default_always_wont_block(self, receiver):
+        """Migrations are safe always by default."""
+        plan = [(Migration(safe=Safe.after_deploy()), False), (Migration(), False)]
         receiver(plan=plan)
-        assert len(plan) == 0
+        assert len(plan) == 1
+
+    def test_default_always_wont_delay(self, receiver):
+        """Migrations are safe always by default."""
+        plan = [(Migration(safe=Safe.before_deploy()), False), (Migration(), False)]
+        receiver(plan=plan)
+        assert len(plan) == 2
 
     def test_all_before(self, receiver):
         """Before migrations will remain in the plan."""
@@ -436,16 +443,14 @@ class TestSafeMigrate:
         assert len(plan) == 1
 
     def test_with_non_safe_migration_nonstrict(self, settings, receiver):
-        """
-        Nonstrict mode allows prevents protected migrations.
-        In this case, that's migrations without a safe attribute.
-        """
+        """Nonstrict mode runs even with blocked migrations."""
         settings.SAFEMIGRATE = "nonstrict"
         plan = [
             (
                 Migration(
                     "auth",
                     "0001_initial",
+                    safe=Safe.after_deploy(),
                 ),
                 False,
             ),
