@@ -610,6 +610,24 @@ class TestSafeMigrate:
         assert SafeMigration.objects.filter(detected__gt=existing.detected).count() == 2
 
 
+    def test_migrations_are_detected_when_no_delays(self, receiver):
+        """Migrations should be marked as detected when there are no delays."""
+        plan = [
+            (Migration("spam", "0001_initial", safe=Safe.before_deploy()), False),
+            (
+                Migration(
+                    "spam",
+                    "0002_followup",
+                    safe=Safe.always(),
+                    dependencies=[("spam", "0001_initial")],
+                ),
+                False,
+            ),
+        ]
+        receiver(plan=plan)
+        assert SafeMigration.objects.count() == 2
+
+
 class TestCheckMissingSafe:
     """
     Test the check command for migrations
