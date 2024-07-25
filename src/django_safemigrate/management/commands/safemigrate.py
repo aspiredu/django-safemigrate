@@ -2,6 +2,7 @@
 
 Migration safety is enforced by a pre_migrate signal receiver.
 """
+
 from __future__ import annotations
 
 from enum import Enum
@@ -14,14 +15,14 @@ from django.db.models.signals import pre_migrate
 from django.utils import timezone
 from django.utils.timesince import timeuntil
 
-from django_safemigrate import Safe, SafeEnum
+from django_safemigrate import Safe, When
 from django_safemigrate.models import SafeMigration
 
 
-class SafeMigrate(Enum):
-    strict = "strict"
-    nonstrict = "nonstrict"
-    disabled = "disabled"
+class Mode(Enum):
+    STRICT = "strict"
+    NONSTRICT = "nonstrict"
+    DISABLED = "disabled"
 
 
 def safety(migration: Migration):
@@ -29,16 +30,11 @@ def safety(migration: Migration):
     return getattr(migration, "safe", Safe.after_deploy())
 
 
-def safemigrate():
-    state = getattr(settings, "SAFEMIGRATE", None)
-    if state is None:
-        return state
+def safemigrate_mode():
     try:
-        return SafeMigrate(state.lower())
-    except ValueError as e:
-        raise ValueError(
-            "Invalid SAFEMIGRATE setting, it must be one of 'strict', 'nonstrict', or 'disabled'."
-        ) from e
+        return Mode(getattr(settings, "SAFEMIGRATE", "strict").lower())
+    except:
+        raise ValueError("SAFEMIGRATE must be 'strict', 'nonstrict', or 'disabled'.")
 
 
 def filter_migrations(
@@ -60,7 +56,7 @@ def filter_migrations(
         migration_safe = safety(migration)
         detected = detected_map.get((migration.app_label, migration.name))
         # A migration is protected if detected is None or delay is not specified.
-        return migration_safe.safe == SafeEnum.after_deploy and (
+        return migration_safe.when == When.after_deploy and (
             detected is None
             or migration_safe.delay is None
             or now < (detected + migration_safe.delay)
@@ -101,13 +97,13 @@ class Command(migrate.Command):
             return  # Only run once
         self.receiver_has_run = True
 
-        safemigrate_state = safemigrate()
-        if safemigrate_state == SafeMigrate.disabled:
+        mode = safemigrate_mode()
+        if mode == Mode.DISABLED:
             # When disabled, run migrate
             return
 
         # strict by default
-        strict = safemigrate_state != SafeMigrate.nonstrict
+        strict = mode != Mode.NONSTRICT
 
         if any(backward for mig, backward in plan):
             raise CommandError("Backward migrations are not supported.")
@@ -120,7 +116,7 @@ class Command(migrate.Command):
             migration
             for migration in migrations
             if not isinstance(safety(migration), Safe)
-            or safety(migration).safe not in SafeEnum
+            or safety(migration).when not in When
         ]
         if invalid:
             self.stdout.write(self.style.MIGRATE_HEADING("Invalid migrations:"))
@@ -158,7 +154,7 @@ class Command(migrate.Command):
 
             for migration in block:
                 ready.remove(migration)
-                if safety(migration).safe == SafeEnum.before_deploy:
+                if safety(migration).when == When.before_deploy:
                     blocked.append(migration)
                 else:
                     delayed.append(migration)
@@ -194,7 +190,7 @@ class Command(migrate.Command):
             for migration in migrations:
                 migration_safe = safety(migration)
                 if (
-                    migration_safe.safe == SafeEnum.after_deploy
+                    migration_safe.when == When.after_deploy
                     and migration_safe.delay is not None
                 ):
                     now = timezone.localtime()

@@ -5,7 +5,7 @@ from datetime import timedelta
 from enum import Enum
 
 
-class SafeEnum(Enum):
+class When(Enum):
     always = "always"
     before_deploy = "before_deploy"
     after_deploy = "after_deploy"
@@ -13,17 +13,17 @@ class SafeEnum(Enum):
 
 @dataclass
 class Safe:
-    safe: SafeEnum
+    when: When
     delay: timedelta | None = None
 
     @classmethod
     def always(cls):
-        return cls(safe=SafeEnum.always)
+        return cls(when=When.always)
 
     @classmethod
     def before_deploy(cls):
-        return cls(safe=SafeEnum.before_deploy)
+        return cls(when=When.before_deploy)
 
     @classmethod
     def after_deploy(cls, *, delay: timedelta = None):
-        return cls(safe=SafeEnum.after_deploy, delay=delay)
+        return cls(when=When.after_deploy, delay=delay)

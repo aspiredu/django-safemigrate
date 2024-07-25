@@ -11,6 +11,7 @@ Pending
   * ``Safe.always()``
 * Add support for allowing a ``Safe.after_deploy(delay=timedelta())``
   migration to be migrated after the delay has passed.
+* Rename internal enums for clarity and PEP8.
 
 4.3 (2024-03-28)
 ++++++++++++++++
