@@ -61,6 +61,17 @@ class TestSafeMigrate:
         receiver(plan=plan)
         assert len(plan) == 1
 
+    def test_callable_compat(self, receiver):
+        """Understand and do not throw an error when using compatibility syntax."""
+        # The plan items aren't dependencies of each other.
+        plan = [
+            (Migration(safe=Safe.before_deploy), False),
+            (Migration(safe=Safe.always), False),
+            (Migration(safe=Safe.after_deploy), False),
+        ]
+        receiver(plan=plan)
+        assert len(plan) == 2
+
     def test_backward(self, receiver):
         """It should fail to run backward."""
         plan = [(Migration(), True)]
