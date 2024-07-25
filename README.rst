@@ -45,7 +45,7 @@ such as a migration to add a column.
     from django_safemigrate import Safe
 
     class Migration(migrations.Migration):
-        safe = Safe.before_deploy()
+        safe = Safe.before_deploy
 
 At this point you can run the ``safemigrate`` Django command
 to run the migrations, and only these migrations will run.
@@ -66,7 +66,7 @@ Safety Options
 There are three options for the value of the
 ``safe`` property of the migration.
 
-* ``Safe.before_deploy()``
+* ``Safe.before_deploy``
 
   This migration is only safe to run before the code change is deployed.
   For example, a migration that adds a new field to a model.
@@ -77,7 +77,7 @@ There are three options for the value of the
   For example, a migration that removes a field from a model.
 
   By specifying a ``delay`` parameter, you can specify when a
-  ``Safe.after_deploy()`` migration can be run with the ``safemigrate``
+  ``Safe.after_deploy`` migration can be run with the ``safemigrate``
   command. For example, if it's desired to wait a week before applying
   a migration, you can specify ``Safe.after_deploy(delay=timedelta(days=7))``.
 
@@ -85,12 +85,12 @@ There are three options for the value of the
   The detection datetime is when the ``safemigrate`` command detects the
   migration in a plan that successfully runs. If the migration plan is blocked,
   such when a ``Safe.after_deploy(delay=None)`` is in front of a
-  ``Safe.before_deploy()``, no migrations are marked as detected.
+  ``Safe.before_deploy``, no migrations are marked as detected.
 
-  Note that a ``Safe.after_deploy()`` migration will not run the first
+  Note that a ``Safe.after_deploy`` migration will not run the first
   time it's encountered.
 
-* ``Safe.always()``
+* ``Safe.always``
 
   This migration is safe to run before *and* after
   the code change is deployed.
