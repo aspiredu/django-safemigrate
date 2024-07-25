@@ -12,6 +12,8 @@ Pending
 * Add support for allowing a ``Safe.after_deploy(delay=timedelta())``
   migration to be migrated after the delay has passed.
 * Rename internal enums for clarity and PEP8.
+* Change the default safe marking to ``Safe.always``.
+  This gives a better default experience for working with third-party apps.
 
 4.3 (2024-03-28)
 ++++++++++++++++

@@ -27,7 +27,7 @@ class Mode(Enum):
 
 def safety(migration: Migration):
     """Determine the safety status of a migration."""
-    return getattr(migration, "safe", Safe.after_deploy())
+    return getattr(migration, "safe", Safe.always())
 
 
 def safemigrate_mode():
