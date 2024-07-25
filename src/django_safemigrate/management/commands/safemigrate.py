@@ -129,7 +129,8 @@ class Command(migrate.Command):
         ready, protected = filter_migrations(migrations)
 
         if not protected:
-            return  # No migrations to protect.
+            self.detect(migrations)
+            return  # Run all the migrations
 
         # Display the migrations that are protected
         self.stdout.write(self.style.MIGRATE_HEADING("Protected migrations:"))
@@ -171,16 +172,20 @@ class Command(migrate.Command):
 
         # Only mark migrations as detected if not faking
         if not self.fake:
-            # The detection datetime is what's used to determine if an
-            # after_deploy() with a delay can be migrated or not.
-            for migration in migrations:
-                SafeMigration.objects.get_or_create(
-                    app=migration.app_label, name=migration.name
-                )
+            self.detect(migrations)
 
         # Swap out the items in the plan with the safe migrations.
         # None are backward, so we can always set backward to False.
         plan[:] = [(migration, False) for migration in ready]
+
+    def detect(self, migrations):
+        """Detect and record migrations to the database."""
+        # The detection datetime is what's used to determine if an
+        # after_deploy() with a delay can be migrated or not.
+        for migration in migrations:
+            SafeMigration.objects.get_or_create(
+                app=migration.app_label, name=migration.name
+            )
 
     def delayed(self, migrations):
         """Handle delayed migrations."""
