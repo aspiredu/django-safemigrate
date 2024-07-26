@@ -275,7 +275,7 @@ class TestSafeMigrate:
         receiver(plan=plan)
         assert len(plan) == 0
 
-    def test_after_message(self, receiver):
+    def test_after_message(self):
         """
         Confirm the delayed messaging of a migration with
         an after_deploy safety.
@@ -285,6 +285,38 @@ class TestSafeMigrate:
                 "spam",
                 "0001_initial",
                 safe=Safe.after_deploy(delay=(timedelta(days=8))),
+            ),
+            Migration(
+                "spam",
+                "0002_followup",
+                safe=Safe.after_deploy(),
+                dependencies=[("spam", "0001_initial")],
+            ),
+        ]
+        out = StringIO()
+        Command(stdout=out).delayed(migrations)
+        result = out.getvalue().strip()
+        header, migration1, migration2 = result.split("\n", maxsplit=2)
+        assert header == "Delayed migrations:"
+        assert migration1.startswith(
+            "  spam.0001_initial (can automatically migrate in 1\xa0week, 1\xa0day - "
+        )
+        assert migration2 == "  spam.0002_followup"
+
+    def test_after_message_preseen(self):
+        """
+        Confirm the delayed messaging of a pre-existing migration with
+        an after_deploy safety.
+        """
+        SafeMigration.objects.create(
+            app="spam", name="0001_initial", detected=timezone.now() - timedelta(days=1)
+        )
+        migrations = [
+            Migration(
+                "spam",
+                "0001_initial",
+                # This will fail if it takes more than 10 minutes to run
+                safe=Safe.after_deploy(delay=(timedelta(days=9, minutes=10))),
             ),
             Migration(
                 "spam",
@@ -624,7 +656,6 @@ class TestSafeMigrate:
         assert SafeMigration.objects.count() == 3
         # Confirm the existing value is not updated
         assert SafeMigration.objects.filter(detected__gt=existing.detected).count() == 2
-
 
     def test_migrations_are_detected_when_no_delays(self, receiver):
         """Migrations should be marked as detected when there are no delays."""

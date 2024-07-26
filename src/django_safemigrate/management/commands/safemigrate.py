@@ -193,6 +193,9 @@ class Command(migrate.Command):
         """Handle delayed migrations."""
         # Display delayed migrations if they exist:
         if migrations:
+            detected_map = SafeMigration.objects.get_detected_map(
+                [(m.app_label, m.name) for m in migrations]
+            )
             self.stdout.write(self.style.MIGRATE_HEADING("Delayed migrations:"))
             for migration in migrations:
                 migration_safe = safety(migration)
@@ -201,7 +204,10 @@ class Command(migrate.Command):
                     and migration_safe.delay is not None
                 ):
                     now = timezone.localtime()
-                    migrate_date = now + migration_safe.delay
+                    detected = detected_map.get(
+                        (migration.app_label, migration.name), timezone.localtime()
+                    )
+                    migrate_date = detected + migration_safe.delay
                     humanized_date = timeuntil(migrate_date, now=now, depth=2)
                     self.stdout.write(
                         f"  {migration.app_label}.{migration.name} "
